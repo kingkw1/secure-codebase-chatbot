@@ -122,6 +122,29 @@ def identify_dependencies(directory='.'):
     return required_dependencies
 
 
+def generate_code_structure(directory='.'):
+    """ Generates a detailed outline of the code structure by listing key files, functions, and classes. """
+    structure = []
+
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.py'):
+                relative_path = os.path.relpath(os.path.join(root, file), directory)
+                structure.append(f"- {relative_path}:")
+                
+                # Get detailed structure of each file (functions and classes)
+                file_structure = parse_code_structure(os.path.join(root, file))
+                
+                # Add functions and classes to the structure
+                for item in file_structure:
+                    if item['type'] == 'function':
+                        structure.append(f"    - Function `{item['name']}` (lines {item['start_line']}-{item['end_line']})")
+                    elif item['type'] == 'class':
+                        structure.append(f"    - Class `{item['name']}` (lines {item['start_line']}-{item['end_line']})")
+
+    return "\n".join(structure)
+
+
 def generate_readme_summary(code_structure):
     # Format the dependencies as a comma-separated list
     
@@ -132,7 +155,7 @@ def generate_readme_summary(code_structure):
     - **Main Files and Functions**:
     {code_structure}
     
-    Please generate a README with sections for Project Title, Purpose, Usage, and Features.
+    Please generate a README with sections for Project Title and Purpose.
     """
 
     # Send the prompt to your LLM model
@@ -143,7 +166,7 @@ def generate_readme_summary(code_structure):
         readme_text = re.sub(r'\s+', ' ', readme_text).strip()
         
         # Restore line breaks after specific sections
-        sections = ["Project Title", "Purpose", "Usage", "Features"]
+        sections = ["Project Title", "Purpose"]
         for section in sections:
             readme_text = readme_text.replace(f"## {section}", f"\n## {section}\n")
         
@@ -154,6 +177,15 @@ def generate_readme_summary(code_structure):
         return readme_text
     else:
         return "No response from LLM"
+
+
+def create_readme_for_directory(directory='.'): # Identify dependencies and generate code structure summary 
+    code_structure = generate_code_structure(directory)
+    
+    # Generate README content using the summary function
+    readme_content = generate_readme_summary(code_structure)
+
+    return readme_content
 
 
 def save_readme(readme_text, output_path="README.md"):

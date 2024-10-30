@@ -4,8 +4,8 @@ import os
 # Add the parent directory to the sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from automation import generate_readme_summary, generate_code_structure
-
+# from automation import generate_readme_summary, generate_code_structure
+from analyzer import create_readme_for_directory
 
 def test_summary_simple():
     base_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -14,10 +14,7 @@ def test_summary_simple():
     print("Testing README summary generation for directory:", directory)
 
     # Generate README content using the summary function
-    code_structure = generate_code_structure(directory)
-
-    # Generate README content using the summary function
-    readme_content = generate_readme_summary(code_structure)
+    readme_content = create_readme_for_directory(directory)
 
     print("Generated README Content:")
     print(readme_content)
