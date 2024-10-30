@@ -89,6 +89,40 @@ def add_comment_to_code(file_path, code_structure):
         file.writelines(lines)
 
 
+def extract_repository_metadata(directory='.'):
+    repository_metadata = {
+        "directory": directory,
+        "files": [],
+        "dependencies": identify_dependencies(directory)
+    }
+
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.py'):
+                file_path = os.path.join(root, file)
+                file_structure = parse_code_structure(file_path)
+                
+                # Add comments generated for each function/class in the file
+                for item in file_structure:
+                    item["comment"] = generate_comment_with_model(item["code"])
+                
+                repository_metadata["files"].append({
+                    "file_path": os.path.relpath(file_path, directory),
+                    "structure": file_structure
+                })
+    
+    # Generate README summary and add it to metadata
+    code_structure_summary = generate_code_structure(directory)
+    repository_metadata["readme_summary"] = generate_readme_summary(code_structure_summary)
+
+    return repository_metadata
+
+
+def save_metadata(metadata, output_path="metadata.json"):
+    with open(output_path, "w") as file:
+        json.dump(metadata, file, indent=2)
+
+        
 def identify_dependencies(directory='.'):
     # Regular expression to find import statements
     import_pattern = re.compile(r'^(?:import|from)\s+([a-zA-Z0-9_]+)')
