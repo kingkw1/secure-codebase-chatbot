@@ -71,11 +71,11 @@ def generate_code_structure(directory='.'):
 
 # Step 3: Generate README Summary and Save to File
 def create_readme(directory='.'): # Identify dependencies and generate code structure summary 
-    dependencies = identify_dependencies(directory) 
+    # dependencies = identify_dependencies(directory) 
     code_structure = generate_code_structure(directory)
 
     # Generate README content using the summary function
-    readme_content = generate_readme_summary(code_structure, dependencies)
+    readme_content = generate_readme_summary(code_structure)
 
     # Save to a README file
     # with open(os.path.join(directory, "README_suggestion.md"), "w") as f:

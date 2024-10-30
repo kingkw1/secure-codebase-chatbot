@@ -122,9 +122,8 @@ def identify_dependencies(directory='.'):
     return required_dependencies
 
 
-def generate_readme_summary(code_structure, dependencies):
+def generate_readme_summary(code_structure):
     # Format the dependencies as a comma-separated list
-    formatted_dependencies = ', '.join(dependencies)
     
     # Create the prompt
     prompt = f"""
@@ -133,10 +132,7 @@ def generate_readme_summary(code_structure, dependencies):
     - **Main Files and Functions**:
     {code_structure}
     
-    - **Dependencies**:
-    {formatted_dependencies}
-    
-    Please generate a README with sections for Project Title, Purpose, Installation, Usage, Features, and Dependencies.
+    Please generate a README with sections for Project Title, Purpose, Usage, and Features.
     """
 
     # Send the prompt to your LLM model
@@ -147,7 +143,7 @@ def generate_readme_summary(code_structure, dependencies):
         readme_text = re.sub(r'\s+', ' ', readme_text).strip()
         
         # Restore line breaks after specific sections
-        sections = ["Project Title", "Purpose", "Installation", "Usage", "Features", "Dependencies"]
+        sections = ["Project Title", "Purpose", "Usage", "Features"]
         for section in sections:
             readme_text = readme_text.replace(f"## {section}", f"\n## {section}\n")
         
