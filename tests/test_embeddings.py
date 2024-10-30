@@ -15,11 +15,9 @@ def test_embeddings():
     # Example input for querying
     query_input = "Explain the purpose of the mean function."
     
-    # (Here you would generate the query embedding based on the input)
-    query_embedding = np.random.random(index.d).astype('float32')  # Replace with actual embedding generation logic
-
-    # query_embedding = query_codellama(query_input)  # Use your LLM to get the embedding
-    # query_embedding = np.array(query_embedding).astype('float32')  # Ensure it's the correct type
+    # Here you would generate the query embedding based on the input
+    # Replace the random embedding with the actual embedding generation logic
+    query_embedding = np.random.random(index.d).astype('float32')  # Example placeholder
 
     # Find the closest embeddings
     closest_indices = find_closest_embeddings(query_embedding, index)
@@ -32,6 +30,13 @@ def test_embeddings():
         return
 
     for idx in valid_indices:
+        matched_file = metadata['files'][idx]
+        for func in matched_file['structure']:
+            # Use the query_input for context in your prompt
+            prompt = f"{query_input} What is the purpose of the function {func['name']}?"
+            print(f"Prompting CodeLlama with: {prompt}")  # Debugging output
+            response = query_codellama(prompt)
+            print(f"Response for {func['name']}: {response}")
         matched_file = metadata['files'][idx]
         for func in matched_file['structure']:
             # Change the prompt to make it more relevant
