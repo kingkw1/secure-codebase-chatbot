@@ -7,3 +7,11 @@
 3. ### **Embeddings-Based Indexer**: Vector database
 4. ### **LLM Integration**: Query-able LLM informed about repos
 5. ### **Query Bot Deployment**: Chatbot interface
+
+
+## Running tests
+Before any tests can be run, ollama must be installed and serving a model. 
+
+ollama serve
+
+ollama run codellama
