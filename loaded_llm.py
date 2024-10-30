@@ -92,5 +92,5 @@ def main():
             print(f"Response for {func['name']}: {response}")
 
 if __name__ == "__main__":
-    main()
-    # app.run(host='0.0.0.0', port=5000)  # Change to a different port, e.g., 5001
+    # main()
+    app.run(host='0.0.0.0', port=5000)  # Change to a different port, e.g., 5001
