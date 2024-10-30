@@ -36,7 +36,7 @@ def parse_code_structure(file_path):
     return code_structure
 
 
-def query_llm(prompt, model_name="codellama"):
+def query_ollama(prompt, model_name="codellama"):
     response = requests.post(
         "http://localhost:11434/api/generate",
         json={
@@ -72,7 +72,7 @@ def generate_comment_with_model(code_block, model_name="codellama"):
     # Define the prompt to instruct the model on generating a comment
     prompt = f"Please provide a concise, descriptive comment for the following code:\n\n{code_block}\n\n# Comment:"
 
-    return query_llm(prompt, model_name)
+    return query_ollama(prompt, model_name)
 
 
 def add_comment_to_code(file_path, code_structure):
@@ -146,8 +146,6 @@ def generate_code_structure(directory='.'):
 
 
 def generate_readme_summary(code_structure):
-    # Format the dependencies as a comma-separated list
-    
     # Create the prompt
     prompt = f"""
     Create a README for a code repository with the following structure:
@@ -155,31 +153,43 @@ def generate_readme_summary(code_structure):
     - **Main Files and Functions**:
     {code_structure}
     
-    Please generate a README with sections for Project Title and Purpose.
+    Please generate a README with sections for Project Title, Purpose, Usage, and Features.
     """
 
     # Send the prompt to your LLM model
-    readme_text = query_llm(prompt)
+    readme_text = query_ollama(prompt)
     
     if readme_text:
-        # Clean up the generated text
+        # Step 1: Remove excessive whitespace and spaces around punctuation
         readme_text = re.sub(r'\s+', ' ', readme_text).strip()
-        
-        # Restore line breaks after specific sections
-        sections = ["Project Title", "Purpose"]
+        readme_text = re.sub(r'\s([.,;:])', r'\1', readme_text)
+
+        # Step 2: Fix broken words (e.g., "data _ processor" to "data_processor")
+        readme_text = re.sub(r'\b(\w+)\s+([._]\s*\w+)', r'\1\2', readme_text)
+
+        # Step 3: Add consistent line breaks for Markdown headers
+        sections = ["Project Title", "Purpose", "Usage", "Features"]
         for section in sections:
-            readme_text = readme_text.replace(f"## {section}", f"\n## {section}\n")
-        
-        # Ensure proper line breaks for Markdown lists and code blocks
+            readme_text = re.sub(f"## {section}", f"\n## {section}\n", readme_text)
+
+        # Step 4: Ensure line breaks for Markdown list items
         readme_text = re.sub(r'(\* )', r'\n\1', readme_text)
+        readme_text = re.sub(r'(\*\*)', r'\n\1', readme_text)  # Handles extra list markers
+
+        # Step 5: Ensure proper formatting for Markdown code blocks
         readme_text = re.sub(r'(```)', r'\n\1', readme_text)
         
+        # Step 6: Final cleanup for extra spaces or line breaks
+        readme_text = re.sub(r'\n\s+', '\n', readme_text)
+        readme_text = re.sub(r'\n{2,}', '\n\n', readme_text)  # Ensure no double newlines
+
         return readme_text
     else:
         return "No response from LLM"
 
 
-def create_readme_for_directory(directory='.'): # Identify dependencies and generate code structure summary 
+def create_readme_for_directory(directory='.'): 
+    # Generate code structure summary 
     code_structure = generate_code_structure(directory)
     
     # Generate README content using the summary function
