@@ -1,9 +1,12 @@
 import ast
-import requests
 import json 
 import os
 import re
 from collections import Counter
+
+# Add the parent directory to the sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common import query_ollama
 
 def parse_code_structure(file_path):
     with open(file_path, "r") as file:
@@ -34,43 +37,6 @@ def parse_code_structure(file_path):
             })
 
     return code_structure
-
-
-def query_ollama(prompt, model_name="codellama"):
-    response = requests.post(
-        "http://localhost:11434/api/generate",
-        json={
-            "model": model_name,
-            "prompt": prompt,
-            "max_tokens": 100,
-            "temperature": 0.2
-        }
-    )
-
-    if response.status_code == 200:
-        try:
-            # Split the response content by newline characters
-            response_lines = response.content.decode('utf-8').split('\n')
-            responses = []
-
-            for line in response_lines:
-                if line.strip():  # Skip empty lines
-                    json_obj = json.loads(line)
-                    responses.append(json_obj.get("response", ""))
-
-            # Join the responses to form the complete response
-            complete_response = ' '.join(responses)
-            
-            # Clean up the response text
-            clean_response = re.sub(r'\s+', ' ', complete_response).strip()
-            
-            return clean_response
-        except json.JSONDecodeError as e:
-            print("JSON Decode Error:", e)
-            return None
-    else:
-        print("Error:", response.status_code, response.reason)
-        return None
         
 
 def generate_comment_with_model(code_block, model_name="codellama"):
