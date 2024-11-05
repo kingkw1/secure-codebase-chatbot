@@ -59,7 +59,12 @@ def query_ollama(prompt, model_name="codellama"):
                     responses.append(json_obj.get("response", ""))
 
             # Join the responses to form the complete response
-            return ' '.join(responses)
+            complete_response = ' '.join(responses)
+            
+            # Clean up the response text
+            clean_response = re.sub(r'\s+', ' ', complete_response).strip()
+            
+            return clean_response
         except json.JSONDecodeError as e:
             print("JSON Decode Error:", e)
             return None
