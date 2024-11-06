@@ -27,14 +27,23 @@ def load_embeddings(index_path):
 
 # Query CodeLlama model using Ollama
 # TODO: Update this function to use the query_ollama function from common.py
+# def query_codellama(prompt):
+#     try:
+#         process = subprocess.Popen(
+#             ['ollama', 'run', 'codellama', prompt],
+#             stdout=subprocess.PIPE,
+#             stderr=subprocess.PIPE,
+#             creationflags=subprocess.CREATE_NO_WINDOW  # For Windows
+#         )
+#         stdout, stderr = process.communicate()  # Get output and error
+#         if stderr:
+#             print("Error:", stderr.decode('utf-8'))
+#         return stdout.decode('utf-8').strip()
+#     except Exception as e:
+#         return f"Error: {e}"
+
 def query_codellama(prompt):
-    try:
-        result = subprocess.run(['ollama', 'run', 'codellama', prompt], capture_output=True, text=True, encoding='utf-8')
-        result.check_returncode()  # Ensures no errors occurred
-        return result.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Error querying CodeLlama: {e}")
-        return "Error querying the model."
+    return f"Mock response for: {prompt}"
 
 # Find the closest embeddings for the query
 def find_closest_embeddings(query_embedding, index, k=5):
