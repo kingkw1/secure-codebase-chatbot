@@ -1,7 +1,8 @@
 import requests
 
 url = "http://127.0.0.1:5001/query"
-payload = {"query": "Explain the purpose of the mean function."}
+query = "Explain the purpose of the mean function."
+payload = {"query": query}
 
 response = requests.post(url, json=payload)
 
