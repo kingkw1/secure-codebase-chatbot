@@ -6,4 +6,8 @@ payload = {"query": "Explain the purpose of the mean function."}
 response = requests.post(url, json=payload)
 
 print("Status Code:", response.status_code)
-print("Response JSON:", response.json())
+try:
+    print("Response JSON:", response.json())
+except requests.exceptions.JSONDecodeError as e:
+    print("Failed to decode JSON response:", e)
+    print("Response Text:", response.text)
