@@ -5,12 +5,14 @@ import subprocess
 import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import re
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
 
 metadata_path = r'C:\Users\kingk\OneDrive\Documents\Projects\repo_chatbot\sample_metadata\test_metadata.json'
 index_path = r'C:\Users\kingk\OneDrive\Documents\Projects\repo_chatbot\sample_metadata\embedding_index.faiss'
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -27,23 +29,28 @@ def load_embeddings(index_path):
 
 # Query CodeLlama model using Ollama
 # TODO: Update this function to use the query_ollama function from common.py
-# def query_codellama(prompt):
-#     try:
-#         process = subprocess.Popen(
-#             ['ollama', 'run', 'codellama', prompt],
-#             stdout=subprocess.PIPE,
-#             stderr=subprocess.PIPE,
-#             creationflags=subprocess.CREATE_NO_WINDOW  # For Windows
-#         )
-#         stdout, stderr = process.communicate()  # Get output and error
-#         if stderr:
-#             print("Error:", stderr.decode('utf-8'))
-#         return stdout.decode('utf-8').strip()
-#     except Exception as e:
-#         return f"Error: {e}"
-
 def query_codellama(prompt):
-    return f"Mock response for: {prompt}"
+    try:
+        process = subprocess.Popen(
+            ['ollama', 'run', 'codellama', prompt],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            creationflags=subprocess.CREATE_NO_WINDOW  # For Windows
+        )
+        stdout, stderr = process.communicate()  # Get output and error
+        if stderr:
+            print("Error:", stderr.decode('utf-8'))
+        response = stdout.decode('utf-8').strip()
+        
+        # Clean up the response text
+        clean_response = re.sub(r'\s+', ' ', response).strip()
+        
+        return clean_response
+    except Exception as e:
+        return f"Error: {e}"
+
+# def query_codellama(prompt):
+#     return f"Mock response for: {prompt}"
 
 # Find the closest embeddings for the query
 def find_closest_embeddings(query_embedding, index, k=5):
@@ -73,7 +80,7 @@ def handle_query():
     for idx in valid_indices:
         matched_file = metadata['files'][idx]
         for func in matched_file['structure']:
-            prompt = f"What is the purpose of the function {func['name']}?"
+            prompt = f"{user_query} The function is {func['name']}."
             response = query_codellama(prompt)
             responses.append({"function": func['name'], "response": response})
             logging.info(f"Prompted CodeLlama with: {prompt}, received: {response}")
