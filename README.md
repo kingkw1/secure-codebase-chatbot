@@ -16,5 +16,15 @@ ollama serve
 
 ollama run codellama
 
-## docker
+## open-webui
+open-webui serve
+
+## Serve flask
+python c:/Users/kingk/OneDrive/Documents/Projects/repo_chatbot/loaded_llm.py
+
+## Serve pipelines (No longer need to serve?)
+cd pipelines
+bash start.sh
+
+## docker -- (No longer using docker)
 docker run -d -p 3000:8080 --gpus=all -v ollama:/root/.ollama -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:ollama
