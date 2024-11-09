@@ -2,29 +2,58 @@
 
 ## Process Overview
 
-1. ### **Code Describer & Interpreter**: Descriptive summaries & comments
-2. ### **Document Crawler**: Structured metadata linked to each repo
-3. ### **Embeddings-Based Indexer**: Vector database
-4. ### **LLM Integration**: Query-able LLM informed about repos
-5. ### **Query Bot Deployment**: Chatbot interface
+#### 1. **Code Describer & Interpreter**: Descriptive summaries & comments
+#### 2. **Document Crawler**: Structured metadata linked to each repo
+#### 3. **Embeddings-Based Indexer**: Vector database
+#### 4. **LLM Integration**: Query-able LLM informed about repos
+#### 5. **Query Bot Deployment**: Chatbot interface
 
 
-## Running tests
-Before any tests can be run, ollama must be installed and serving a model. 
+## Initializing
+### 1. Run Ollama
 
-ollama serve
+### 2. Serve the flask app
+```markdown
+.\.venv\Scripts\activate
+python repo_chatbot/rag_agent_app.py
+```
 
-ollama run codellama
+### 3. Serve the pipelines
+```markdown
+bash start_pipelines.sh
+```
 
-## open-webui
+- Note: After the pipelines have been served, and open-webui finds them, the pipelines can be edited and then updated within the webui from the admin panel, rather than restarting the pipeline server
+
+### 4. Serve open-webui 
+```markdown
+.\.venv\Scripts\activate
 open-webui serve
+```
 
-## Serve flask
-python c:/Users/kingk/OneDrive/Documents/Projects/repo_chatbot/loaded_llm.py
+### 5. Open open-webui in browser
+http://localhost:8080
 
-## Serve pipelines (No longer need to serve?)
-cd pipelines
-bash start.sh
+### 6. Connect the pipeline within the browser
+- Note: Can be skipped if pipeline existed within the directory: repo_chatbot/pipelines/pipelines, and has not been changed
 
-## docker -- (No longer using docker)
-docker run -d -p 3000:8080 --gpus=all -v ollama:/root/.ollama -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:ollama
+http://localhost:8080/admin/settings
+> Settings > Pipelines > Pipeline Valves 
+- Verify that "flask_app_pipeline (pipe)" is within the Pipelines Valves
+- Upload pipeline here if needed
+
+### 7. Select the pipeline from wthin chat window.
+http://localhost:8080
+> select "Flask App Connector Pipeline" from the top left drop down
+
+### Chat away!
+
+## Debugging: Run tests
+Note: These tests are largely subjective in nature
+
+#### 1. test_connection
+#### 2. test_comment
+#### 3. test_summary
+#### 4. test_metadata_extraction
+#### 5. test_embeddings
+#### 6. test_query

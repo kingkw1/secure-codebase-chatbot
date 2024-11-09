@@ -3,7 +3,7 @@ import os
 
 # Add the parent directory to the sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from loaded_llm import query_ollama, load_embeddings, load_metadata, find_closest_embeddings, metadata_path, index_path
+from rag_agent_app import query_ollama, load_embeddings, load_metadata, find_closest_embeddings, metadata_path, index_path
 
 
 # Main function to run the script
