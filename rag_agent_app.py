@@ -131,9 +131,19 @@ def handle_query():
                 continue
 
             for func in relevant_funcs:
-                prompt = f"{user_query} The function is {func.get('name', 'Unnamed function')}."
+                # Prepare a detailed prompt specifically about the matched function
+                func_name = func.get('name', 'Unnamed function')
+                func_comment = func.get('comment', '')  # If details like comments or docstrings are available
+                func_code = func.get('code', '')  # If code snippets are available
+                prompt = (
+                    f"Explain the purpose of the '{func_name}' function within this codebase. "
+                    f"Here is the function's definition: {func_code}. "
+                    f"Here is the function's comments: {func_comment}. "
+                    f"Query: {user_query}"
+                )
+
                 response = query_ollama(prompt)
-                responses.append({"function": func.get('name', 'Unnamed function'), "response": response})
+                responses.append({"function": func_name, "response": response})
                 logging.info(f"Prompted {model} with: {prompt}, received: {response}")
 
         return jsonify(responses)
