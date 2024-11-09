@@ -1,5 +1,6 @@
 import json
 import requests
+import re
 
 def query_ollama(prompt, model_name="codellama"):
     response = requests.post(

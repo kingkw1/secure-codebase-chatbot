@@ -1,5 +1,6 @@
 import sys
 import os
+import numpy as np
 
 # Add the parent directory to the sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
