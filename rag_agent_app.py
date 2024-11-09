@@ -6,9 +6,12 @@ import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import re
+import sys
+import os
 
-metadata_path = r'C:\Users\kingk\OneDrive\Documents\Projects\repo_chatbot\sample_metadata\test_metadata.json'
-index_path = r'C:\Users\kingk\OneDrive\Documents\Projects\repo_chatbot\sample_metadata\embedding_index.faiss'
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common import metadata_path, index_path
+
 model = 'llama3.2'
 
 # Setup logging

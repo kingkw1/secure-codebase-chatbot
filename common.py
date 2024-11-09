@@ -1,6 +1,10 @@
 import json
 import requests
 import re
+import os
+
+metadata_path = os.path.join(os.path.dirname(__file__), 'sample_metadata', 'test_metadata.json')
+index_path = os.path.join(os.path.dirname(__file__), 'sample_metadata', 'embedding_index.faiss')
 
 def query_ollama(prompt, model_name="codellama"):
     response = requests.post(

@@ -1,7 +1,7 @@
 import requests
 
 # Define the URL of the Flask API
-url = 'http://127.0.0.1:5001/query'
+url = "http://10.5.0.2:5001/query"
 
 # Define the payload (your query)
 data = {

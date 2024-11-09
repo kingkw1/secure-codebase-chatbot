@@ -15,7 +15,7 @@
 ### 2. Serve the flask app
 ```markdown
 .\.venv\Scripts\activate
-python repo_chatbot/rag_agent_app.py
+python rag_agent_app.py
 ```
 
 ### 3. Serve the pipelines

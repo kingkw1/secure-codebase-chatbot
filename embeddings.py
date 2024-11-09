@@ -2,10 +2,11 @@ import json
 import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
+import sys
+import os 
 
-# Define paths for metadata JSON and FAISS index files
-metadata_file_path = r"C:\Users\kingk\OneDrive\Documents\Projects\repo_chatbot\sample_metadata\test_metadata.json"
-faiss_index_path = r"C:\Users\kingk\OneDrive\Documents\Projects\repo_chatbot\sample_metadata\embedding_index.faiss"
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common import metadata_path, index_path
 
 # Load the metadata JSON
 def load_metadata(file_path):
@@ -47,12 +48,12 @@ def search_index(query, model, index, text_data, top_k=5):
 # Main script
 def main():
     # Step 1: Load metadata and extract text data
-    metadata = load_metadata(metadata_file_path)
+    metadata = load_metadata(metadata_path)
     text_data = extract_text_data(metadata)
 
     # Step 2: Generate embeddings and create FAISS index
     embeddings = generate_embeddings(text_data)
-    index = create_faiss_index(embeddings, faiss_index_path)
+    index = create_faiss_index(embeddings, index_path)
 
     # Step 3: Query the index
     query = "Describe the function that calculates mean"  # Example query
