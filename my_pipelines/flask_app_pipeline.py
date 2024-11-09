@@ -5,6 +5,7 @@ from pydantic import BaseModel
 class Pipeline:
     class Valves(BaseModel):
         endpoint_api: str = "http://10.5.0.2:5001/query"
+        timeout: int = 30
 
     def __init__(self):
         self.name = "Flask App Connector Pipeline"
@@ -27,7 +28,7 @@ class Pipeline:
             response = requests.post(
                 self.valves.endpoint_api, 
                 json={"query": user_message},
-                timeout=30  # Set an appropriate timeout
+                timeout=self.valves.timeout
             )
             
             response.raise_for_status()

@@ -4,7 +4,7 @@ import os
 # Add the parent directory to the sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analyzer import extract_repository_metadata, save_metadata
+from analyzer import extract_repository_metadata
 
 def test_metadata_extraction():
     base_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,8 +17,6 @@ def test_metadata_extraction():
 
     print("Extracted Metadata:")
     print(metadata)
-
-    # save_metadata(metadata, output_path="test_metadata.json")
     
 
 if __name__ == "__main__":
