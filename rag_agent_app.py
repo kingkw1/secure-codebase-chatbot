@@ -37,6 +37,7 @@ def load_metadata(file_path):
 
 # Load embeddings from FAISS index file
 def load_embeddings(index_path):
+    assert os.path.exists(index_path), f"Index file not found: {index_path}"
     return faiss.read_index(index_path)
 
 def generate_embedding(query):
@@ -95,10 +96,6 @@ def query_ollama(prompt):
         return f"Error: {e}"
 
 # Find the closest embeddings for the query
-# def find_closest_embeddings(query_embedding, index, k=5):
-#     D, I = index.search(query_embedding.reshape(1, -1), k)
-#     return I[0]
-
 def find_closest_embeddings(query_embedding, index, k=5, distance_threshold=5):
     # TODO: use plot embeddings functions to generate the distance threshold
     D, I = index.search(query_embedding.reshape(1, -1), k)
@@ -122,7 +119,6 @@ def handle_query():
         index = load_embeddings(index_path)
 
         # Generate query embedding (update with meaningful embedding logic)
-        # query_embedding = np.random.random(index.d).astype('float32')  # Placeholder logic
         query_embedding = generate_embedding(user_query).astype('float32')
 
         closest_indices = find_closest_embeddings(query_embedding, index)
