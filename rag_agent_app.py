@@ -95,19 +95,62 @@ def query_ollama(prompt):
     except Exception as e:
         return f"Error: {e}"
 
+# Define a custom scoring function
+def custom_score(query, matched_file, distance):
+    # Match specific keywords in the query with metadata attributes
+    query_keywords = set(re.findall(r'\w+', query.lower()))
+    func_matches = [
+        func for func in matched_file['structure'] 
+        if any(keyword in func.get('name', '').lower() for keyword in query_keywords)
+    ]
+    keyword_score = len(func_matches)
+
+    # Combine the FAISS distance with keyword score, penalizing/boosting based on custom criteria
+    # You can adjust the weights below as needed for tuning
+    custom_score = -distance + (keyword_score * 0.5)
+    return custom_score, func_matches
+
 # Multi-stage retrieval function
-def multi_stage_retrieval(query_embedding, index, first_stage_k=10, second_stage_k=5, distance_threshold=5):
-    # First stage: Broad retrieval
-    D, I = index.search(query_embedding.reshape(1, -1), first_stage_k)
-    
-    # Second stage: Refine by filtering on distance threshold
-    refined_indices = [I[0][i] for i in range(len(D[0])) if D[0][i] < distance_threshold]
-    
-    # If not enough entries pass the threshold, fall back to the top K from first stage
-    if len(refined_indices) < second_stage_k:
-        refined_indices = I[0][:second_stage_k]
-    
-    return refined_indices[:second_stage_k]
+def multi_stage_retrieval_with_custom_scoring(query_embedding, index, metadata, query, first_stage_k=10, second_stage_k=5, distance_threshold=None):
+    # Perform initial search in FAISS index
+    try:
+        D, I = index.search(query_embedding.reshape(1, -1), first_stage_k)
+        logging.info(f"FAISS distances (D): {D}")
+        logging.info(f"FAISS indices (I): {I}")
+    except Exception as e:
+        logging.error(f"Error during FAISS search: {e}")
+        return []
+
+    scored_results = []
+
+    # Process the top-k FAISS results
+    for dist, idx in zip(D[0], I[0]):
+        # Boundary check: Ensure index is within metadata bounds
+        if not (0 <= idx < len(metadata['files'])):
+            logging.warning(f"Index {idx} out of bounds for metadata.")
+            continue
+
+        # Optionally filter results by distance threshold
+        if distance_threshold is not None and dist >= distance_threshold:
+            logging.info(f"Skipping result at index {idx} due to distance threshold: {dist} >= {distance_threshold}")
+            continue
+
+        # Retrieve the matched file from metadata and compute custom score
+        matched_file = metadata['files'][idx]
+        score, matched_funcs = custom_score(query, matched_file, dist)
+
+        # Ensure there are matched functions before adding to results
+        if matched_funcs:
+            scored_results.append((score, idx, matched_funcs))
+        else:
+            logging.info(f"No relevant functions found in metadata for index {idx}.")
+
+    # Sort results by custom score in descending order
+    scored_results = sorted(scored_results, key=lambda x: x[0], reverse=True)
+
+    # Return only the top `second_stage_k` results
+    return scored_results[:second_stage_k]
+
 
 # Find the closest embeddings for the query
 def find_closest_embeddings(query_embedding, index, k=5, distance_threshold=5):
@@ -135,11 +178,10 @@ def handle_query():
         # Generate query embedding (update with meaningful embedding logic)
         query_embedding = generate_embedding(user_query).astype('float32')
 
-        # closest_indices = find_closest_embeddings(query_embedding, index)
-        closest_indices = multi_stage_retrieval(query_embedding, index)
-        valid_indices = [idx for idx in closest_indices if 0 <= idx < len(metadata['files'])]
+        # Multi-stage retrieval with custom scoring
+        scored_results = multi_stage_retrieval_with_custom_scoring(query_embedding, index, metadata, user_query)
 
-        if not valid_indices:
+        if not scored_results:
             logging.warning("No valid indices found.")
             return jsonify({"error": "No matching functions found."})
 
@@ -147,33 +189,13 @@ def handle_query():
         query_keywords = re.findall(r'\w+', user_query.lower())
 
         responses = []
-        for idx in valid_indices:
+        for score, idx, relevant_funcs in scored_results:
             matched_file = metadata['files'][idx]
 
-            # Add debug log to see all functions in the matched file
-            logging.debug(f"Checking functions in file: {matched_file['file_path']}")
-
-            # Match functions by checking if any keyword appears in the function name
-            relevant_funcs = [
-                func for func in matched_file['structure'] 
-                if any(keyword in func.get('name', '').lower() for keyword in query_keywords)
-            ]
-
-            # Log matched functions for further troubleshooting
-            if relevant_funcs:
-                logging.info(f"Relevant functions found: {[func.get('name', 'Unnamed function') for func in relevant_funcs]}")
-            else:
-                logging.info("No relevant functions found in this file.")
-
-            # Skip if no relevant functions were found
-            if not relevant_funcs:
-                continue
-
             for func in relevant_funcs:
-                # Prepare a detailed prompt specifically about the matched function
                 func_name = func.get('name', 'Unnamed function')
-                func_comment = func.get('comment', '')  # If details like comments or docstrings are available
-                func_code = func.get('code', '')  # If code snippets are available
+                func_comment = func.get('comment', '')
+                func_code = func.get('code', '')
                 prompt = (
                     f"Explain the purpose of the '{func_name}' function within this codebase. "
                     f"Here is the function's definition: {func_code}. "
@@ -182,10 +204,16 @@ def handle_query():
                 )
 
                 response = query_ollama(prompt)
-                responses.append({"function": func_name, "response": response})
+                responses.append({
+                    "function": func_name,
+                    "file": matched_file['file_path'],
+                    "score": score,
+                    "response": response
+                })
                 logging.info(f"Prompted {llm_model_name} with: {prompt}, received: {response}")
 
         return jsonify(responses)
+    
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         return jsonify({"error": str(e)}), 500
