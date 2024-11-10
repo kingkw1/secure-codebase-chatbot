@@ -8,16 +8,25 @@ from flask_cors import CORS
 import re
 import sys
 import os
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, AutoModelForSequenceClassification
 import torch
-
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
+from torch.nn.functional import softmax
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import metadata_path, index_path
 
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+
+# Initialize embedding models
 llm_model_name = 'llama3.2'
 embedding_model_name = 'sentence-transformers/all-MiniLM-L6-v2'
+tokenizer = AutoTokenizer.from_pretrained(embedding_model_name)
+llm_model = AutoModel.from_pretrained(embedding_model_name)
+
+# Load cross-encoder model for reranking
+cross_encoder_name = 'cross-encoder/ms-marco-MiniLM-L-6-v2'
+cross_encoder_tokenizer = AutoTokenizer.from_pretrained(cross_encoder_name)
+cross_encoder_model = AutoModelForSequenceClassification.from_pretrained(cross_encoder_name)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -25,10 +34,6 @@ logging.basicConfig(level=logging.INFO)
 # Initialize Flask application
 app = Flask(__name__)
 CORS(app)
-
-# Initialize embedding models
-tokenizer = AutoTokenizer.from_pretrained(embedding_model_name)
-llm_model = AutoModel.from_pretrained(embedding_model_name)
 
 # Load metadata from JSON file
 def load_metadata(file_path):
@@ -115,7 +120,8 @@ def custom_score(query, matched_file, distance):
     return custom_score, func_matches
 
 # Multi-stage retrieval with context-aware reranking
-def multi_stage_retrieval_with_custom_scoring(query_embedding, index, metadata, query, first_stage_k=10, second_stage_k=5, distance_threshold=None):
+def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, metadata, query, first_stage_k=10, second_stage_k=5, distance_threshold=None):
+    # Stage 1: Retrieve initial results using FAISS
     try:
         D, I = index.search(query_embedding.reshape(1, -1), first_stage_k)
         logging.info(f"FAISS distances (D): {D}")
@@ -124,7 +130,7 @@ def multi_stage_retrieval_with_custom_scoring(query_embedding, index, metadata, 
         logging.error(f"Error during FAISS search: {e}")
         return []
 
-    scored_results = []
+    candidates = []
 
     for dist, idx in zip(D[0], I[0]):
         if not (0 <= idx < len(metadata['files'])):
@@ -138,14 +144,18 @@ def multi_stage_retrieval_with_custom_scoring(query_embedding, index, metadata, 
         score, matched_funcs = custom_score(query, matched_file, dist)
 
         if matched_funcs:
-            scored_results.append((score, idx, matched_funcs))
-        else:
-            logging.info(f"No relevant functions found in metadata for index {idx}.")
+            for func in matched_funcs:
+                func_text = func.get('code', '') + " " + func.get('comment', '')
+                # Calculate cross-encoder relevance score
+                cross_encoder_score_val = cross_encoder_score(query, func_text)
+                
+                # Combine FAISS distance score and cross-encoder score
+                final_score = score + cross_encoder_score_val  # Adjust weighting as needed
+                candidates.append((final_score, idx, func, matched_file))
 
-    # Sort by custom score for context-aware reranking
-    scored_results = sorted(scored_results, key=lambda x: x[0], reverse=True)
-
-    return scored_results[:second_stage_k]
+    # Sort by final combined score
+    reranked_results = sorted(candidates, key=lambda x: x[0], reverse=True)[:second_stage_k]
+    return reranked_results
 
 
 # Find the closest embeddings for the query
@@ -161,6 +171,23 @@ def find_closest_embeddings(query_embedding, index, k=5, distance_threshold=5):
             return I[0]  # If none meet the threshold, return the original top-k indices
     return I[0]
 
+# Function to calculate cross-encoder scores
+def cross_encoder_score(query, candidate_text):
+    # Tokenize the input pair
+    inputs = cross_encoder_tokenizer(query, candidate_text, return_tensors="pt", truncation=True, padding=True)
+    # Get the model's output
+    outputs = cross_encoder_model(**inputs)
+    scores = softmax(outputs.logits, dim=-1)  # Apply softmax to get probabilities
+    
+    # Check if the output has two logits (binary classification)
+    if scores.shape[1] == 2:
+        # Return the relevance score (second index for relevance, first index for irrelevance)
+        return scores[0][1].item()  # Assuming the second index is the relevance score
+    else:
+        # If only one score, return it (in case of single-label classification)
+        return scores[0][0].item()
+
+
 @app.route('/query', methods=['POST'])
 def handle_query():
     try:
@@ -171,43 +198,36 @@ def handle_query():
         index = load_embeddings(index_path)
         query_embedding = generate_embedding(user_query).astype('float32')
 
-        # Multi-stage retrieval with hierarchical context-aware reranking
-        scored_results = multi_stage_retrieval_with_custom_scoring(query_embedding, index, metadata, user_query)
+        # Use multi-stage retrieval with cross-encoder reranking
+        scored_results = multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, metadata, user_query)
 
         if not scored_results:
             logging.warning("No valid indices found.")
             return jsonify({"error": "No matching functions found."})
 
         responses = []
-        for score, idx, relevant_funcs in scored_results:
-            matched_file = metadata['files'][idx]
+        for final_score, idx, func, matched_file in scored_results:
+            func_name = func.get('name', 'Unnamed function')
+            func_comment = func.get('comment', '')
+            func_code = func.get('code', '')
+            prompt = (
+                f"Explain the purpose of the '{func_name}' function within this codebase. "
+                f"Here is the function's definition: {func_code}. "
+                f"Here is the function's comments: {func_comment}. "
+                f"Query: {user_query}"
+            )
 
-            for func in relevant_funcs:
-                func_name = func.get('name', 'Unnamed function')
-                func_comment = func.get('comment', '')
-                func_code = func.get('code', '')
-                prompt = (
-                    f"Explain the purpose of the '{func_name}' function within this codebase. "
-                    f"Here is the function's definition: {func_code}. "
-                    f"Here is the function's comments: {func_comment}. "
-                    f"Query: {user_query}"
-                )
-
-                response = query_ollama(prompt)
-                responses.append({
-                    "function": func_name,
-                    "file": matched_file['file_path'],
-                    "score": score,
-                    "response": response
-                })
-                logging.info(f"Prompted {llm_model_name} with: {prompt}, received: {response}")
+            response = query_ollama(prompt)
+            responses.append({
+                "function": func_name,
+                "file": matched_file['file_path'],
+                "score": final_score,
+                "response": response
+            })
+            logging.info(f"Prompted {llm_model_name} with: {prompt}, received: {response}")
 
         return jsonify(responses)
 
-    except Exception as e:
-        logging.error(f"An error occurred: {e}")
-        return jsonify({"error": str(e)}), 500
-    
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         return jsonify({"error": str(e)}), 500
