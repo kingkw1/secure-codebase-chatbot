@@ -1,12 +1,20 @@
 import json
 import numpy as np
 import faiss
-from sentence_transformers import SentenceTransformer
+import torch
+from transformers import RobertaTokenizer, RobertaModel
 import sys
-import os 
+import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import metadata_path, index_path
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+
+# Initialize the CodeBERT tokenizer and model
+model_name = "microsoft/codebert-base"  # CodeBERT base model for code embeddings
+tokenizer = RobertaTokenizer.from_pretrained(model_name)
+model = RobertaModel.from_pretrained(model_name)
 
 # Load the metadata JSON
 def load_metadata(file_path):
@@ -22,16 +30,27 @@ def extract_text_data(metadata):
     ]
     return text_data
 
-# Generate embeddings for text data
-def generate_embeddings(text_data, model_name="all-MiniLM-L6-v2"):
-    model = SentenceTransformer(model_name)
-    return model.encode(text_data, convert_to_tensor=True)
+# Generate embeddings for text data using CodeBERT
+def generate_embeddings(text_data):
+    embeddings = []
+    for text in text_data:
+        # Tokenize the text
+        inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+
+        # Get the model's embeddings (last hidden state)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        
+        # We use the mean of the last hidden state for the embeddings
+        embedding = outputs.last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
+        embeddings.append(embedding)
+    
+    return np.array(embeddings)
 
 # Create FAISS index and save it
 def create_faiss_index(embeddings, output_path):
-    embedding_array = np.vstack([embedding.numpy() for embedding in embeddings])
-    index = faiss.IndexFlatL2(embedding_array.shape[1])
-    index.add(embedding_array)
+    index = faiss.IndexFlatL2(embeddings.shape[1])  # L2 distance for nearest neighbor search
+    index.add(embeddings.astype('float32'))  # Add embeddings to the index
     faiss.write_index(index, output_path)
     return index
 
@@ -41,8 +60,13 @@ def load_faiss_index(file_path):
 
 # Perform search on the FAISS index
 def search_index(query, model, index, text_data, top_k=5):
-    query_embedding = model.encode(query, convert_to_tensor=True).numpy()
+    # Generate embedding for the query
+    query_embedding = generate_embeddings([query])[0]
+    
+    # Perform the search on the FAISS index
     distances, indices = index.search(query_embedding[np.newaxis, :], top_k)
+    
+    # Return the matched text and the distances
     return [(text_data[i], distances[0][j]) for j, i in enumerate(indices[0])]
 
 # Main script
@@ -57,7 +81,6 @@ def main():
 
     # Step 3: Query the index
     query = "Describe the function that calculates mean"  # Example query
-    model = SentenceTransformer("all-MiniLM-L6-v2")
     results = search_index(query, model, index, text_data)
     
     # Display results

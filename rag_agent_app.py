@@ -16,10 +16,12 @@ from common import metadata_path, index_path
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+llm_model_name = 'llama3.2'
+
 
 # Initialize embedding models
-llm_model_name = 'llama3.2'
-embedding_model_name = 'sentence-transformers/all-MiniLM-L6-v2'
+# embedding_model_name = 'sentence-transformers/all-MiniLM-L6-v2'
+embedding_model_name = 'microsoft/codebert-base'  # Switch to CodeBERT for domain-specific embeddings
 tokenizer = AutoTokenizer.from_pretrained(embedding_model_name)
 llm_model = AutoModel.from_pretrained(embedding_model_name)
 
