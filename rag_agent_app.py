@@ -8,11 +8,16 @@ from flask_cors import CORS
 import re
 import sys
 import os
+from transformers import AutoTokenizer, AutoModel
+import torch
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import metadata_path, index_path
 
-model = 'llama3.2'
+llm_model_name = 'llama3.2'
+embedding_model_name = 'sentence-transformers/all-MiniLM-L6-v2'
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +25,10 @@ logging.basicConfig(level=logging.INFO)
 # Initialize Flask application
 app = Flask(__name__)
 CORS(app)
+
+# Initialize embedding models
+tokenizer = AutoTokenizer.from_pretrained(embedding_model_name)
+llm_model = AutoModel.from_pretrained(embedding_model_name)
 
 # Load metadata from JSON file
 def load_metadata(file_path):
@@ -30,15 +39,21 @@ def load_metadata(file_path):
 def load_embeddings(index_path):
     return faiss.read_index(index_path)
 
+def generate_embedding(query):
+    inputs = tokenizer(query, return_tensors="pt")
+    outputs = llm_model(**inputs)
+    embedding = outputs.last_hidden_state.mean(dim=1)
+    return embedding.detach().numpy()
+
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
 
-# Query ollama  model using Ollama
+# Query ollama  llm_model using Ollama
 def query_ollama(prompt):
     try:
         process = subprocess.Popen(
-            ['ollama', 'run', model, prompt],
+            ['ollama', 'run', llm_model_name, prompt],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             creationflags=subprocess.CREATE_NO_WINDOW  # For Windows
@@ -80,8 +95,20 @@ def query_ollama(prompt):
         return f"Error: {e}"
 
 # Find the closest embeddings for the query
-def find_closest_embeddings(query_embedding, index, k=5):
+# def find_closest_embeddings(query_embedding, index, k=5):
+#     D, I = index.search(query_embedding.reshape(1, -1), k)
+#     return I[0]
+
+def find_closest_embeddings(query_embedding, index, k=5, distance_threshold=5):
+    # TODO: use plot embeddings functions to generate the distance threshold
     D, I = index.search(query_embedding.reshape(1, -1), k)
+    if distance_threshold:
+        # Select only indices in I where the corresponding distances in D are below the threshold
+        I_filtered = I[0][D[0] < distance_threshold]
+        if len(I_filtered) > 0:
+            return I_filtered  # Return only the indices within the threshold
+        else:
+            return I[0]  # If none meet the threshold, return the original top-k indices
     return I[0]
 
 @app.route('/query', methods=['POST'])
@@ -95,7 +122,8 @@ def handle_query():
         index = load_embeddings(index_path)
 
         # Generate query embedding (update with meaningful embedding logic)
-        query_embedding = np.random.random(index.d).astype('float32')  # Placeholder logic
+        # query_embedding = np.random.random(index.d).astype('float32')  # Placeholder logic
+        query_embedding = generate_embedding(user_query).astype('float32')
 
         closest_indices = find_closest_embeddings(query_embedding, index)
         valid_indices = [idx for idx in closest_indices if 0 <= idx < len(metadata['files'])]
@@ -144,7 +172,7 @@ def handle_query():
 
                 response = query_ollama(prompt)
                 responses.append({"function": func_name, "response": response})
-                logging.info(f"Prompted {model} with: {prompt}, received: {response}")
+                logging.info(f"Prompted {llm_model_name} with: {prompt}, received: {response}")
 
         return jsonify(responses)
     except Exception as e:
