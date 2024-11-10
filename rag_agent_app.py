@@ -7,10 +7,9 @@ from flask_cors import CORS
 import re
 import sys
 import os
-import torch
 from torch.nn.functional import softmax
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from common import metadata_path, index_path
+from common import metadata_path, index_path, query_ollama
 from models import embedding_model, embedding_tokenizer, cross_encoder_model, cross_encoder_tokenizer, agent_model_name
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -51,54 +50,6 @@ def strip_ansi_codes(text):
     return ansi_escape.sub('', text)
 
 
-def query_ollama(prompt):
-    """
-    Query the OLLAMA API to generate a response for the given prompt using the specified language model.
-    """
-    try:
-        process = subprocess.Popen(
-            ['ollama', 'run', agent_model_name, prompt],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            creationflags=subprocess.CREATE_NO_WINDOW  # For Windows
-        )
-        
-        stdout, stderr = process.communicate()  # Get output and error
-
-        # Decode and clean up stdout
-        response = stdout.decode('utf-8').strip()
-        
-        # Remove any terminal escape sequences from the response
-        response = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', response)
-        
-        # Remove any ANSI color codes from the response
-        response = strip_ansi_codes(response)
-
-        # Remove response error messages related to console mode if present
-        response = re.sub(
-            r'failed to get console mode for stdout: The handle is invalid\.\n'
-            r'failed to get console mode for stderr: The handle is invalid\.\n', 
-            '', 
-            response
-        )
-
-        # Remove stderr messages related to console mode if present
-        stderr_output = stderr.decode('utf-8').strip()
-        stderr_output = strip_ansi_codes(stderr_output)
-        stderr_output = stderr_output.replace('⠙ ', '')  # Remove spinner or progress characters
-
-        if stderr_output:
-            logging.error(f"STDERR: {stderr_output}")
-
-        # Concatenate cleaned response and filtered stderr output if needed
-        final_response = response
-
-        return final_response
-
-    except Exception as e:
-        return f"Error: {e}"
-
-
 def custom_score(query, matched_file, distance):
     """
     Define a hierarchical context-aware scoring function
@@ -136,6 +87,7 @@ def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, m
 
     candidates = []
 
+    # Stage 2: Rerank top-k results using a cross-encoder model
     for dist, idx in zip(D[0], I[0]):
         if not (0 <= idx < len(metadata['files'])):
             logging.warning(f"Index {idx} out of bounds for metadata.")
@@ -145,7 +97,17 @@ def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, m
             continue
 
         matched_file = metadata['files'][idx]
+        logging.info(f"Processing metadata entry: {matched_file['file_path']} with distance {dist}")
+
         score, matched_funcs = custom_score(query, matched_file, dist)
+        logging.info(f"Custom score for {matched_file['file_path']}: {score}, Matched functions: {[func['name'] for func in matched_funcs]}")
+
+        # Log function-level details for debugging
+        for func in matched_funcs:
+            func_name = func.get('name', 'Unnamed function')
+            func_code = func.get('code', '')
+            func_comment = func.get('comment', '')
+            logging.info(f"Matched function: {func_name}, Code: {func_code[:30]}..., Comment: {func_comment[:30]}...")  # Log partial code/comment for brevity
 
         if matched_funcs:
             for func in matched_funcs:
@@ -226,7 +188,7 @@ def handle_query():
                 f"Query: {user_query}"
             )
 
-            response = query_ollama(prompt)
+            response = query_ollama(prompt, model_name=agent_model_name)
             responses.append({
                 "function": func_name,
                 "file": matched_file['file_path'],
