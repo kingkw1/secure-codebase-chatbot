@@ -95,9 +95,8 @@ def query_ollama(prompt):
     except Exception as e:
         return f"Error: {e}"
 
-# Define a custom scoring function
+# Define a hierarchical context-aware scoring function
 def custom_score(query, matched_file, distance):
-    # Match specific keywords in the query with metadata attributes
     query_keywords = set(re.findall(r'\w+', query.lower()))
     func_matches = [
         func for func in matched_file['structure'] 
@@ -105,14 +104,18 @@ def custom_score(query, matched_file, distance):
     ]
     keyword_score = len(func_matches)
 
-    # Combine the FAISS distance with keyword score, penalizing/boosting based on custom criteria
-    # You can adjust the weights below as needed for tuning
-    custom_score = -distance + (keyword_score * 0.5)
+    # Define additional contextual scoring
+    file_path_context_score = sum(
+        [1 for keyword in query_keywords if keyword in matched_file['file_path'].lower()]
+    )
+    type_context_score = 1 if matched_file.get('type', '').lower() in query_keywords else 0
+
+    # Combine context scores with distance for a final custom score
+    custom_score = -distance + (keyword_score * 0.5) + (file_path_context_score * 0.3) + (type_context_score * 0.2)
     return custom_score, func_matches
 
-# Multi-stage retrieval function
+# Multi-stage retrieval with context-aware reranking
 def multi_stage_retrieval_with_custom_scoring(query_embedding, index, metadata, query, first_stage_k=10, second_stage_k=5, distance_threshold=None):
-    # Perform initial search in FAISS index
     try:
         D, I = index.search(query_embedding.reshape(1, -1), first_stage_k)
         logging.info(f"FAISS distances (D): {D}")
@@ -123,32 +126,25 @@ def multi_stage_retrieval_with_custom_scoring(query_embedding, index, metadata, 
 
     scored_results = []
 
-    # Process the top-k FAISS results
     for dist, idx in zip(D[0], I[0]):
-        # Boundary check: Ensure index is within metadata bounds
         if not (0 <= idx < len(metadata['files'])):
             logging.warning(f"Index {idx} out of bounds for metadata.")
             continue
-
-        # Optionally filter results by distance threshold
         if distance_threshold is not None and dist >= distance_threshold:
             logging.info(f"Skipping result at index {idx} due to distance threshold: {dist} >= {distance_threshold}")
             continue
 
-        # Retrieve the matched file from metadata and compute custom score
         matched_file = metadata['files'][idx]
         score, matched_funcs = custom_score(query, matched_file, dist)
 
-        # Ensure there are matched functions before adding to results
         if matched_funcs:
             scored_results.append((score, idx, matched_funcs))
         else:
             logging.info(f"No relevant functions found in metadata for index {idx}.")
 
-    # Sort results by custom score in descending order
+    # Sort by custom score for context-aware reranking
     scored_results = sorted(scored_results, key=lambda x: x[0], reverse=True)
 
-    # Return only the top `second_stage_k` results
     return scored_results[:second_stage_k]
 
 
@@ -170,23 +166,17 @@ def handle_query():
     try:
         user_query = request.json.get('query', '')
         logging.info(f"Received query: {user_query}")
-        
-        # Load metadata and embeddings (for development; cache for production)
+
         metadata = load_metadata(metadata_path)
         index = load_embeddings(index_path)
-
-        # Generate query embedding (update with meaningful embedding logic)
         query_embedding = generate_embedding(user_query).astype('float32')
 
-        # Multi-stage retrieval with custom scoring
+        # Multi-stage retrieval with hierarchical context-aware reranking
         scored_results = multi_stage_retrieval_with_custom_scoring(query_embedding, index, metadata, user_query)
 
         if not scored_results:
             logging.warning("No valid indices found.")
             return jsonify({"error": "No matching functions found."})
-
-        # Extracting keywords from the user's query for more flexible function matching
-        query_keywords = re.findall(r'\w+', user_query.lower())
 
         responses = []
         for score, idx, relevant_funcs in scored_results:
@@ -213,6 +203,10 @@ def handle_query():
                 logging.info(f"Prompted {llm_model_name} with: {prompt}, received: {response}")
 
         return jsonify(responses)
+
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        return jsonify({"error": str(e)}), 500
     
     except Exception as e:
         logging.error(f"An error occurred: {e}")
