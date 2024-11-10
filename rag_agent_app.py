@@ -1,5 +1,4 @@
 import faiss
-import numpy as np
 import json
 import subprocess
 import logging
@@ -8,27 +7,14 @@ from flask_cors import CORS
 import re
 import sys
 import os
-from transformers import AutoTokenizer, AutoModel, AutoModelForSequenceClassification
 import torch
 from torch.nn.functional import softmax
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import metadata_path, index_path
+from models import embedding_model, embedding_tokenizer, cross_encoder_model, cross_encoder_tokenizer, agent_model_name
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-llm_model_name = 'llama3.2'
-
-
-# Initialize embedding models
-# embedding_model_name = 'sentence-transformers/all-MiniLM-L6-v2'
-embedding_model_name = 'microsoft/codebert-base'  # Switch to CodeBERT for domain-specific embeddings
-tokenizer = AutoTokenizer.from_pretrained(embedding_model_name)
-llm_model = AutoModel.from_pretrained(embedding_model_name)
-
-# Load cross-encoder model for reranking
-cross_encoder_name = 'cross-encoder/ms-marco-MiniLM-L-6-v2'
-cross_encoder_tokenizer = AutoTokenizer.from_pretrained(cross_encoder_name)
-cross_encoder_model = AutoModelForSequenceClassification.from_pretrained(cross_encoder_name)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -54,8 +40,8 @@ def load_embeddings(index_path):
 
 
 def generate_embedding(query):
-    inputs = tokenizer(query, return_tensors="pt")
-    outputs = llm_model(**inputs)
+    inputs = embedding_tokenizer(query, return_tensors="pt")
+    outputs = embedding_model(**inputs)
     embedding = outputs.last_hidden_state.mean(dim=1)
     return embedding.detach().numpy()
 
@@ -67,11 +53,11 @@ def strip_ansi_codes(text):
 
 def query_ollama(prompt):
     """
-    # Query ollama  llm_model using Ollama
-"""
+    Query the OLLAMA API to generate a response for the given prompt using the specified language model.
+    """
     try:
         process = subprocess.Popen(
-            ['ollama', 'run', llm_model_name, prompt],
+            ['ollama', 'run', agent_model_name, prompt],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             creationflags=subprocess.CREATE_NO_WINDOW  # For Windows
@@ -247,7 +233,7 @@ def handle_query():
                 "score": final_score,
                 "response": response
             })
-            logging.info(f"Prompted {llm_model_name} with: {prompt}, received: {response}")
+            logging.info(f"Prompted {agent_model_name} with: {prompt}, received: {response}")
 
         return jsonify(responses)
 

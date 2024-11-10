@@ -2,20 +2,16 @@ import json
 import numpy as np
 import faiss
 import torch
-from transformers import RobertaTokenizer, RobertaModel
 import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from analyzer import generate_code_structure, generate_comment_with_model, generate_readme_summary, identify_dependencies, parse_code_structure
-from common import metadata_path, index_path
+from common import index_path
+from models import embedding_model, embedding_tokenizer
+
+# Set environment variable to avoid conflicts with MKL
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
-
-# Initialize the CodeBERT tokenizer and model
-model_name = "microsoft/codebert-base"  # CodeBERT base model for code embeddings
-tokenizer = RobertaTokenizer.from_pretrained(model_name)
-model = RobertaModel.from_pretrained(model_name)
 
 
 def load_metadata(file_path):
@@ -45,11 +41,11 @@ def generate_embeddings(text_data):
     embeddings = []
     for text in text_data:
         # Tokenize the text
-        inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+        inputs = embedding_tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
 
         # Get the model's embeddings (last hidden state)
         with torch.no_grad():
-            outputs = model(**inputs)
+            outputs = embedding_model(**inputs)
         
         # We use the mean of the last hidden state for the embeddings
         embedding = outputs.last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
@@ -81,7 +77,7 @@ def load_faiss_index(file_path):
     return faiss.read_index(file_path)
 
 
-def search_index(query, model, index, text_data, top_k=5):
+def search_index(query, index, text_data, top_k=5):
     """
     Perform a search on the FAISS index using the query and retrieve the top-k results.
     """

@@ -4,9 +4,10 @@ import re
 from collections import Counter
 import sys
 
-# Add the parent directory to the sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import query_ollama
+from models import code_parser_model_name
+
 
 def parse_code_structure(file_path):
     """
@@ -65,14 +66,14 @@ def generate_code_structure(directory='.'):
     return "\n".join(structure)
 
 
-def generate_comment_with_model(code_block, model_name="codellama"):
+def generate_comment_with_model(code_block):
     """
     Generate a comment for the given code block using a language model.
     """
     # Define the prompt to instruct the model on generating a comment
     prompt = f"Please provide a concise, descriptive comment for the following code:\n\n{code_block}\n\n# Comment:"
 
-    return query_ollama(prompt, model_name)
+    return query_ollama(prompt, code_parser_model_name)
 
 
 def generate_readme_summary(code_structure):
@@ -90,7 +91,7 @@ def generate_readme_summary(code_structure):
     """
 
     # Send the prompt to your LLM model
-    readme_text = query_ollama(prompt)
+    readme_text = query_ollama(prompt, code_parser_model_name)
     
     if readme_text:
         # Step 1: Remove excessive whitespace and spaces around punctuation
@@ -170,9 +171,5 @@ def identify_dependencies(directory='.'):
     ])
     
     required_dependencies = [dep for dep in dependencies if dep not in built_in_modules]
-    
-    print("Dependencies found (excluding built-in modules):")
-    for dep in required_dependencies:
-        print(dep)
-        
+            
     return required_dependencies
