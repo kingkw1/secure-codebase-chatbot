@@ -7,6 +7,9 @@ metadata_path = os.path.join(os.path.dirname(__file__), 'sample_metadata', 'test
 index_path = os.path.join(os.path.dirname(__file__), 'sample_metadata', 'embedding_index.faiss')
 
 def query_ollama(prompt, model_name="codellama"):
+    """
+    Query the OLLAMA API to generate a response for the given prompt using the specified language model.
+    """
     response = requests.post(
         "http://localhost:11434/api/generate",
         json={

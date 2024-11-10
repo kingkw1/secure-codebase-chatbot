@@ -4,7 +4,7 @@ import os
 # Add the parent directory to the sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analyzer import extract_repository_metadata
+from embeddings import extract_repository_metadata
 
 def test_metadata_extraction():
     base_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

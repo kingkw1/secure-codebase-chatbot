@@ -37,15 +37,21 @@ logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 CORS(app)
 
-# Load metadata from JSON file
 def load_metadata(file_path):
+    """
+    Load metadata from a JSON file.
+    """
     with open(file_path, 'r') as f:
         return json.load(f)
 
-# Load embeddings from FAISS index file
+
 def load_embeddings(index_path):
+    """
+    Load the FAISS index from the specified file path.
+    """
     assert os.path.exists(index_path), f"Index file not found: {index_path}"
     return faiss.read_index(index_path)
+
 
 def generate_embedding(query):
     inputs = tokenizer(query, return_tensors="pt")
@@ -53,12 +59,16 @@ def generate_embedding(query):
     embedding = outputs.last_hidden_state.mean(dim=1)
     return embedding.detach().numpy()
 
+
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
 
-# Query ollama  llm_model using Ollama
+
 def query_ollama(prompt):
+    """
+    # Query ollama  llm_model using Ollama
+"""
     try:
         process = subprocess.Popen(
             ['ollama', 'run', llm_model_name, prompt],
@@ -102,8 +112,11 @@ def query_ollama(prompt):
     except Exception as e:
         return f"Error: {e}"
 
-# Define a hierarchical context-aware scoring function
+
 def custom_score(query, matched_file, distance):
+    """
+    Define a hierarchical context-aware scoring function
+    """
     query_keywords = set(re.findall(r'\w+', query.lower()))
     func_matches = [
         func for func in matched_file['structure'] 
@@ -121,8 +134,11 @@ def custom_score(query, matched_file, distance):
     custom_score = -distance + (keyword_score * 0.5) + (file_path_context_score * 0.3) + (type_context_score * 0.2)
     return custom_score, func_matches
 
-# Multi-stage retrieval with context-aware reranking
+
 def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, metadata, query, first_stage_k=10, second_stage_k=5, distance_threshold=None):
+    """
+    Perform multi-stage retrieval with cross-encoder reranking
+    """
     # Stage 1: Retrieve initial results using FAISS
     try:
         D, I = index.search(query_embedding.reshape(1, -1), first_stage_k)
@@ -160,8 +176,10 @@ def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, m
     return reranked_results
 
 
-# Find the closest embeddings for the query
 def find_closest_embeddings(query_embedding, index, k=5, distance_threshold=5):
+    """
+    Find the closest embeddings to the query embedding using the FAISS index.
+    """
     # TODO: use plot embeddings functions to generate the distance threshold
     D, I = index.search(query_embedding.reshape(1, -1), k)
     if distance_threshold:
@@ -173,8 +191,11 @@ def find_closest_embeddings(query_embedding, index, k=5, distance_threshold=5):
             return I[0]  # If none meet the threshold, return the original top-k indices
     return I[0]
 
-# Function to calculate cross-encoder scores
+
 def cross_encoder_score(query, candidate_text):
+    """
+    Compute the relevance score between a query and a candidate text using a cross-encoder model.
+    """
     # Tokenize the input pair
     inputs = cross_encoder_tokenizer(query, candidate_text, return_tensors="pt", truncation=True, padding=True)
     # Get the model's output
