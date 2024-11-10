@@ -95,6 +95,20 @@ def query_ollama(prompt):
     except Exception as e:
         return f"Error: {e}"
 
+# Multi-stage retrieval function
+def multi_stage_retrieval(query_embedding, index, first_stage_k=10, second_stage_k=5, distance_threshold=5):
+    # First stage: Broad retrieval
+    D, I = index.search(query_embedding.reshape(1, -1), first_stage_k)
+    
+    # Second stage: Refine by filtering on distance threshold
+    refined_indices = [I[0][i] for i in range(len(D[0])) if D[0][i] < distance_threshold]
+    
+    # If not enough entries pass the threshold, fall back to the top K from first stage
+    if len(refined_indices) < second_stage_k:
+        refined_indices = I[0][:second_stage_k]
+    
+    return refined_indices[:second_stage_k]
+
 # Find the closest embeddings for the query
 def find_closest_embeddings(query_embedding, index, k=5, distance_threshold=5):
     # TODO: use plot embeddings functions to generate the distance threshold
@@ -121,7 +135,8 @@ def handle_query():
         # Generate query embedding (update with meaningful embedding logic)
         query_embedding = generate_embedding(user_query).astype('float32')
 
-        closest_indices = find_closest_embeddings(query_embedding, index)
+        # closest_indices = find_closest_embeddings(query_embedding, index)
+        closest_indices = multi_stage_retrieval(query_embedding, index)
         valid_indices = [idx for idx in closest_indices if 0 <= idx < len(metadata['files'])]
 
         if not valid_indices:
