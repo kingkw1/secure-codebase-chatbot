@@ -8,12 +8,12 @@ import re
 import sys
 import os
 from torch.nn.functional import softmax
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import metadata_path, index_path, query_ollama
 from models import embedding_model, embedding_tokenizer, cross_encoder_model, cross_encoder_tokenizer, agent_model_name
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -26,11 +26,9 @@ def load_metadata(file_path):
     with open(file_path, 'r') as f:
         return json.load(f)
 
-
 def load_embeddings(index_path):
     assert os.path.exists(index_path), f"Index file not found: {index_path}"
     return faiss.read_index(index_path)
-
 
 def generate_embedding(query):
     inputs = embedding_tokenizer(query, return_tensors="pt")
@@ -38,20 +36,23 @@ def generate_embedding(query):
     embedding = outputs.last_hidden_state.mean(dim=1)
     return embedding.detach().numpy()
 
-
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
 
-
 def custom_score(query, matched_file, distance):
     query_keywords = set(re.findall(r'\w+', query.lower()))
-    func_matches = [
+    exact_match_funcs = [
         func for func in matched_file['structure'] 
+        if func.get('name', '').lower() in query_keywords
+    ]
+    partial_match_funcs = [
+        func for func in matched_file['structure']
         if any(keyword in func.get('name', '').lower() for keyword in query_keywords)
     ]
-    keyword_score = len(func_matches)
 
+    func_matches = exact_match_funcs or partial_match_funcs
+    keyword_score = len(exact_match_funcs) * 1.5 + len(partial_match_funcs) * 0.5
     file_path_context_score = sum(
         [1 for keyword in query_keywords if keyword in matched_file['file_path'].lower()]
     )
@@ -59,7 +60,6 @@ def custom_score(query, matched_file, distance):
 
     custom_score = -distance + (keyword_score * 0.5) + (file_path_context_score * 0.3) + (type_context_score * 0.2)
     return custom_score, func_matches
-
 
 def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, metadata, query, first_stage_k=10, second_stage_k=5, distance_threshold=None):
     try:
@@ -71,7 +71,6 @@ def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, m
         return []
 
     candidates = []
-
     for dist, idx in zip(D[0], I[0]):
         if not (0 <= idx < len(metadata['files'])):
             logging.warning(f"Index {idx} out of bounds for metadata.")
@@ -100,7 +99,6 @@ def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, m
     reranked_results = sorted(candidates, key=lambda x: x[0], reverse=True)[:second_stage_k]
     return reranked_results
 
-
 def find_closest_embeddings(query_embedding, index, k=5, distance_threshold=5):
     D, I = index.search(query_embedding.reshape(1, -1), k)
     if distance_threshold:
@@ -111,7 +109,6 @@ def find_closest_embeddings(query_embedding, index, k=5, distance_threshold=5):
             return I[0]
     return I[0]
 
-
 def cross_encoder_score(query, candidate_text):
     inputs = cross_encoder_tokenizer(query, candidate_text, return_tensors="pt", truncation=True, padding=True)
     outputs = cross_encoder_model(**inputs)
@@ -121,7 +118,6 @@ def cross_encoder_score(query, candidate_text):
         return scores[0][1].item()
     else:
         return scores[0][0].item()
-
 
 @app.route('/query', methods=['POST'])
 def handle_query():
@@ -146,8 +142,8 @@ def handle_query():
             func_code = func.get('code', '')
             prompt = (
                 f"Explain the purpose of the '{func_name}' function within this codebase. "
-                f"Here is the function's definition: {func_code}. "
-                f"Here is the function's comments: {func_comment}. "
+                f"Function code: {func_code}. "
+                f"Comments: {func_comment}. "
                 f"Query: {user_query}"
             )
 
