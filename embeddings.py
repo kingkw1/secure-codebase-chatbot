@@ -4,11 +4,12 @@ import faiss
 import torch
 import sys
 import os
-
+import re
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from analyzer import generate_code_structure, generate_comment_with_model, generate_readme_summary, identify_dependencies, parse_code_structure
 from common import index_path
 from models import embedding_model, embedding_tokenizer
+from tqdm import tqdm
 
 # Set environment variable to avoid conflicts with MKL
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -20,6 +21,9 @@ def load_metadata(file_path):
     """
     with open(file_path, "r") as file:
         return json.load(file)
+
+def clean_text(text):
+    return re.sub(r'\s+', ' ', text.strip())
 
 
 def extract_text_data(metadata):
@@ -117,22 +121,23 @@ def extract_repository_metadata(directory='.'):
         "files": [],
         "dependencies": identify_dependencies(directory)
     }
-
+    python_files = []
     for root, _, files in os.walk(directory):
         for file in files:
             if file.endswith('.py'):
-                file_path = os.path.join(root, file)
-                file_structure = parse_code_structure(file_path)
+                python_files.append(os.path.join(root, file))
 
-                # Add comments generated for each function/class in the file
-                for item in file_structure:
-                    item["comment"] = generate_comment_with_model(item["code"])
+    for file_path in tqdm(python_files, desc="Processing files"):
+        file_structure = parse_code_structure(file_path)
 
-                repository_metadata["files"].append({
-                    "file_path": os.path.relpath(file_path, directory),
-                    "structure": file_structure
-                })
+        # Add comments generated for each function/class in the file
+        for item in file_structure:
+            item["comment"] = generate_comment_with_model(item["code"])
 
+        repository_metadata["files"].append({
+            "file_path": os.path.relpath(file_path, directory),
+            "structure": file_structure
+        })
     # Generate README summary and add it to metadata
     code_structure_summary = generate_code_structure(directory)
     repository_metadata["readme_summary"] = generate_readme_summary(code_structure_summary)
