@@ -22,6 +22,9 @@ logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 CORS(app)
 
+
+test_function_penalty = 50
+
 def load_metadata(file_path):
     with open(file_path, 'r') as f:
         return json.load(f)
@@ -39,25 +42,37 @@ def generate_embedding(query):
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
-
 def custom_score(query, matched_file, distance):
     query_keywords = set(re.findall(r'\w+', query.lower()))
+
+    # Exact match score (direct function name match)
     exact_match_funcs = [
-        func for func in matched_file['structure'] 
-        if func.get('name', '').lower() in query_keywords
+        func for func in matched_file['structure']
+        if func.get('name', '').lower() == query.strip().lower()
     ]
+
     partial_match_funcs = [
         func for func in matched_file['structure']
         if any(keyword in func.get('name', '').lower() for keyword in query_keywords)
     ]
-
+    
     func_matches = exact_match_funcs or partial_match_funcs
     keyword_score = len(exact_match_funcs) * 1.5 + len(partial_match_funcs) * 0.5
-    file_path_context_score = sum(
-        [1 for keyword in query_keywords if keyword in matched_file['file_path'].lower()]
-    )
+    
+    # Score based on file path context (does the query relate to the file's path?)
+    file_path_context_score = sum([1 for keyword in query_keywords if keyword in matched_file['file_path'].lower()])
+    
+    # Score based on function type context
     type_context_score = 1 if matched_file.get('type', '').lower() in query_keywords else 0
 
+    # Apply query context filter for penalizing test-related functions when query does not mention "test"
+    if 'test' not in query.lower():
+        for func in func_matches:
+            if 'test' in func.get('name', '').lower():
+                logging.info(f"Penalizing test function: {func['name']} as query does not mention 'test'")
+                keyword_score -= test_function_penalty  # Penalize test functions when query is not about tests
+
+    # Combine all scores
     custom_score = -distance + (keyword_score * 0.5) + (file_path_context_score * 0.3) + (type_context_score * 0.2)
     return custom_score, func_matches
 
@@ -85,7 +100,16 @@ def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, m
         score, matched_funcs = custom_score(query, matched_file, dist)
         logging.info(f"Custom score for {matched_file['file_path']}: {score}, Matched functions: {[func['name'] for func in matched_funcs]}")
 
-        for func in matched_funcs:
+        # Apply query context filtering: Ensure that functions with relevant context are selected
+        context_filtered_funcs = [
+            func for func in matched_funcs 
+            if func['name'].lower() in query.lower() or any(keyword in func.get('code', '').lower() for keyword in query.split())
+        ]
+        
+        if not context_filtered_funcs:
+            continue
+
+        for func in context_filtered_funcs:
             func_name = func.get('name', 'Unnamed function')
             func_code = func.get('code', '')
             func_comment = func.get('comment', '')
@@ -96,6 +120,7 @@ def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, m
             final_score = score + cross_encoder_score_val
             candidates.append((final_score, idx, func, matched_file))
 
+    # Sort candidates based on final score and select top candidates
     reranked_results = sorted(candidates, key=lambda x: x[0], reverse=True)[:second_stage_k]
     return reranked_results
 
@@ -156,11 +181,15 @@ def handle_query():
             })
             logging.info(f"Prompted {agent_model_name} with: {prompt}, received: {response}")
 
+        for response in responses:
+            print(f"Function: {response['function']}, Score: {response['score']}")
+
         return jsonify(responses)
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5001)
