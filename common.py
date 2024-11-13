@@ -1,19 +1,17 @@
-import json
-import requests
-import re
-import os
-
-metadata_path = os.path.join(os.path.dirname(__file__), 'sample_metadata', 'test_metadata.json')
-index_path = os.path.join(os.path.dirname(__file__), 'sample_metadata', 'embedding_index.faiss')
-
 import subprocess
 import requests
 import json
 import re
 import logging
+import os
+
+metadata_path = os.path.join(os.path.dirname(__file__), 'sample_metadata', 'test_metadata.json')
+index_path = os.path.join(os.path.dirname(__file__), 'sample_metadata', 'embedding_index.faiss')
+
 
 def strip_ansi_codes(text):
     return re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
+
 
 def query_ollama(prompt, model_name="codellama", api_mode=True, max_tokens=100, temperature=0.2):
     """
