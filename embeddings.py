@@ -22,9 +22,6 @@ def load_metadata(file_path):
     with open(file_path, "r") as file:
         return json.load(file)
 
-def clean_text(text):
-    return re.sub(r'\s+', ' ', text.strip())
-
 
 def extract_text_data(metadata):
     """
@@ -127,11 +124,13 @@ def extract_repository_metadata(directory='.'):
             if file.endswith('.py'):
                 python_files.append(os.path.join(root, file))
 
-    for file_path in tqdm(python_files, desc="Processing files"):
+    for file_path in python_files:
         file_structure = parse_code_structure(file_path)
 
+        relative_path = os.path.relpath(file_path, directory)
+        
         # Add comments generated for each function/class in the file
-        for item in file_structure:
+        for item in tqdm(file_structure, desc="Generating comments for file: " + relative_path):
             item["comment"] = generate_comment_with_model(item["code"])
 
         repository_metadata["files"].append({

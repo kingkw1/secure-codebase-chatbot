@@ -9,6 +9,33 @@ from common import query_ollama
 from models import code_parser_model_name
 
 
+def clean_text(response_text):
+    # Step 1: Remove excessive whitespace
+    response_text = re.sub(r'\s+', ' ', response_text).strip()
+
+    # Step 2: Remove spaces around punctuation
+    response_text = re.sub(r'\s([.,;:])', r'\1', response_text)
+    response_text = re.sub(r'([.,;:])\s', r'\1 ', response_text)
+
+    # Step 3: Fix broken words (e.g., "sub t ract" to "subtract")
+    # This regex looks for sequences of single characters separated by spaces and joins them
+    response_text = re.sub(r'\b(\w(?:\s\w)+)\b', lambda m: m.group(0).replace(' ', ''), response_text)
+
+    # Step 4: Fix broken words within single quotations
+    response_text = re.sub(r'`([^`]+)`', lambda m: '`' + m.group(1).replace(' ', '') + '`', response_text)
+
+    # Step 5: Fix broken words with single characters followed by a space and another character
+    response_text = re.sub(r'\b(\w)\s+(\w)\b', r'\1\2', response_text)
+
+    # Step 6: Fix broken words with multiple characters followed by a space and another character
+    response_text = re.sub(r'(\w)([A-Z])', r'\1 \2', response_text)
+
+    # Step 7: Fix broken words with multiple characters followed by a space and another character
+    response_text = re.sub(r'(\w)([A-Z])', r'\1 \2', response_text)
+
+    return response_text
+
+
 def parse_code_structure(file_path):
     """
     Parse the code structure of a Python file and extract functions and classes.
@@ -73,7 +100,10 @@ def generate_comment_with_model(code_block):
     # Define the prompt to instruct the model on generating a comment
     prompt = f"Please provide a concise, descriptive comment for the following code:\n\n{code_block}\n\n# Comment:"
 
-    return query_ollama(prompt, code_parser_model_name)
+    response = query_ollama(prompt, code_parser_model_name)
+
+    cleaned_response = clean_text(response)
+    return cleaned_response
 
 
 def generate_readme_summary(code_structure):
