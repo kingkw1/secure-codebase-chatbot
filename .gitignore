@@ -3,3 +3,6 @@ __pycache__/
 
 # WebUI secret key
 .webui_secret_key
+
+# IntelliJ IDEA files
+.idea/
