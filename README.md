@@ -9,6 +9,15 @@
 #### 5. **Query Bot Deployment**: Chatbot interface
 
 
+## Installation
+
+### 1. Install Python version 3.11
+
+### 2. Install Depedancies
+```markdown
+pip install -r requirements.txt
+```
+
 ## Initializing
 ### 1. Run Ollama
 
