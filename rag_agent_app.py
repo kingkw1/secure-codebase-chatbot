@@ -1,6 +1,5 @@
 import faiss
 import json
-import subprocess
 import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -23,7 +22,7 @@ app = Flask(__name__)
 CORS(app)
 
 
-test_function_penalty = 50
+test_function_penalty = 100
 
 def load_metadata(file_path):
     with open(file_path, 'r') as f:
@@ -42,42 +41,38 @@ def generate_embedding(query):
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
+
 def custom_score(query, matched_file, distance):
     query_keywords = set(re.findall(r'\w+', query.lower()))
-
-    # Exact match score (direct function name match)
     exact_match_funcs = [
         func for func in matched_file['structure']
         if func.get('name', '').lower() == query.strip().lower()
     ]
-
     partial_match_funcs = [
         func for func in matched_file['structure']
         if any(keyword in func.get('name', '').lower() for keyword in query_keywords)
     ]
-    
+
     func_matches = exact_match_funcs or partial_match_funcs
-    keyword_score = len(exact_match_funcs) * 1.5 + len(partial_match_funcs) * 0.5
-    
-    # Score based on file path context (does the query relate to the file's path?)
-    file_path_context_score = sum([1 for keyword in query_keywords if keyword in matched_file['file_path'].lower()])
-    
-    # Score based on function type context
+    keyword_score = len(exact_match_funcs) * 2.0 + len(partial_match_funcs) * 0.5
+
+    file_path_context_score = sum(
+        [1 for keyword in query_keywords if keyword in matched_file['file_path'].lower()]
+    )
     type_context_score = 1 if matched_file.get('type', '').lower() in query_keywords else 0
 
-    # Apply query context filter for penalizing test-related functions when query does not mention "test"
     if 'test' not in query.lower():
         for func in func_matches:
             if 'test' in func.get('name', '').lower():
                 logging.info(f"Penalizing test function: {func['name']} as query does not mention 'test'")
-                keyword_score -= test_function_penalty  # Penalize test functions when query is not about tests
+                keyword_score -= test_function_penalty
 
-    # Combine all scores
     custom_score = -distance + (keyword_score * 0.5) + (file_path_context_score * 0.3) + (type_context_score * 0.2)
     return custom_score, func_matches
 
 def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, metadata, query, first_stage_k=10, second_stage_k=5, distance_threshold=None):
     try:
+        # Step 1: Initial retrieval using FAISS
         D, I = index.search(query_embedding.reshape(1, -1), first_stage_k)
         logging.info(f"FAISS distances (D): {D}")
         logging.info(f"FAISS indices (I): {I}")
@@ -86,10 +81,15 @@ def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, m
         return []
 
     candidates = []
+    test_function_penalty = 5  # Adjust penalty for test functions
+
     for dist, idx in zip(D[0], I[0]):
+        # Skip invalid indices
         if not (0 <= idx < len(metadata['files'])):
             logging.warning(f"Index {idx} out of bounds for metadata.")
             continue
+        
+        # Skip entries exceeding the distance threshold
         if distance_threshold is not None and dist >= distance_threshold:
             logging.info(f"Skipping result at index {idx} due to distance threshold: {dist} >= {distance_threshold}")
             continue
@@ -97,18 +97,28 @@ def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, m
         matched_file = metadata['files'][idx]
         logging.info(f"Processing metadata entry: {matched_file['file_path']} with distance {dist}")
 
+        # Step 2: Compute custom score and retrieve matched functions
         score, matched_funcs = custom_score(query, matched_file, dist)
         logging.info(f"Custom score for {matched_file['file_path']}: {score}, Matched functions: {[func['name'] for func in matched_funcs]}")
 
-        # Apply query context filtering: Ensure that functions with relevant context are selected
-        context_filtered_funcs = [
-            func for func in matched_funcs 
-            if func['name'].lower() in query.lower() or any(keyword in func.get('code', '').lower() for keyword in query.split())
-        ]
-        
+        # Step 3: Apply query context filtering
+        context_filtered_funcs = []
+        for func in matched_funcs:
+            # Penalize test functions if query does not mention 'test'
+            if 'test' not in query.lower() and 'test' in func.get('name', '').lower():
+                logging.info(f"Penalizing test function: {func['name']} as query does not mention 'test'")
+                score -= test_function_penalty
+                continue
+            
+            # Add functions that match the query context
+            if func['name'].lower() in query.lower() or any(keyword in func.get('code', '').lower() for keyword in query.split()):
+                context_filtered_funcs.append(func)
+
+        # Skip files without relevant functions
         if not context_filtered_funcs:
             continue
 
+        # Step 4: Calculate cross-encoder scores for each function
         for func in context_filtered_funcs:
             func_name = func.get('name', 'Unnamed function')
             func_code = func.get('code', '')
@@ -117,11 +127,18 @@ def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, m
 
             func_text = func.get('code', '') + " " + func.get('comment', '')
             cross_encoder_score_val = cross_encoder_score(query, func_text)
+            
+            # Combine custom score and cross-encoder score
             final_score = score + cross_encoder_score_val
             candidates.append((final_score, idx, func, matched_file))
 
-    # Sort candidates based on final score and select top candidates
+    # Step 5: Rerank results based on final score
     reranked_results = sorted(candidates, key=lambda x: x[0], reverse=True)[:second_stage_k]
+    
+    # Log reranked results
+    for result in reranked_results:
+        logging.info(f"Reranked Result - Function: {result[2]['name']}, Score: {result[0]}, File: {result[3]['file_path']}")
+    
     return reranked_results
 
 def find_closest_embeddings(query_embedding, index, k=5, distance_threshold=5):
