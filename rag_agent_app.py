@@ -164,42 +164,60 @@ def cross_encoder_score(query, candidate_text):
 @app.route('/query', methods=['POST'])
 def handle_query():
     try:
-        user_query = request.json.get('query', '')
+        user_query = request.json.get('query', '').strip()
         logging.info(f"Received query: {user_query}")
 
+        # Load metadata and FAISS index
         metadata = load_metadata(metadata_path)
         index = load_embeddings(index_path)
         query_embedding = generate_embedding(user_query).astype('float32')
 
+        # Retrieve candidates using multi-stage retrieval
         scored_results = multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, metadata, user_query)
 
         if not scored_results:
             logging.warning("No valid indices found.")
             return jsonify({"error": "No matching functions found."})
 
+        # Identify intent for dynamic prompting
+        is_location_query = any(keyword in user_query.lower() for keyword in ["where", "located", "location"])
         responses = []
+
         for final_score, idx, func, matched_file in scored_results:
             func_name = func.get('name', 'Unnamed function')
             func_comment = func.get('comment', '')
             func_code = func.get('code', '')
-            prompt = (
-                f"Explain the purpose of the '{func_name}' function within this codebase. "
-                f"Function code: {func_code}. "
-                f"Comments: {func_comment}. "
-                f"Query: {user_query}"
-            )
+            file_path = matched_file.get('file_path', 'Unknown location')
 
+            # Create a dynamic prompt based on query intent
+            if is_location_query:
+                prompt = (
+                    f"Where is the '{func_name}' function located in this codebase? "
+                    f"The function is defined as follows: {func_code}. "
+                    f"It is currently associated with the file: {file_path}. "
+                    f"Query: {user_query}"
+                )
+            else:
+                prompt = (
+                    f"Explain the purpose of the '{func_name}' function within this codebase. "
+                    f"Function code: {func_code}. "
+                    f"Comments: {func_comment}. "
+                    f"Query: {user_query}"
+                )
+
+            # Query the LLM
             response = query_ollama(prompt, model_name=agent_model_name)
             responses.append({
                 "function": func_name,
-                "file": matched_file['file_path'],
+                "file": file_path,
                 "score": final_score,
                 "response": response
             })
             logging.info(f"Prompted {agent_model_name} with: {prompt}, received: {response}")
 
+        # Print filtered results for debugging
         for response in responses:
-            print(f"Function: {response['function']}, Score: {response['score']}")
+            print(f"Function: {response['function']}, File: {response['file']}, Score: {response['score']}")
 
         return jsonify(responses)
 
