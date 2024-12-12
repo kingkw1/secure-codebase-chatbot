@@ -164,63 +164,46 @@ def cross_encoder_score(query, candidate_text):
 @app.route('/query', methods=['POST'])
 def handle_query():
     try:
-        user_query = request.json.get('query', '').strip()
+        user_query = request.json.get('query', '')
         logging.info(f"Received query: {user_query}")
 
-        # Determine if the query is related to the codebase
-        related_keywords = {'function', 'code', 'file', 'module', 'path', 'repository', 'class', 'variable'}
-        is_related_query = any(keyword in user_query.lower() for keyword in related_keywords)
-
-        if not is_related_query:
-            # Handle unrelated queries
-            unrelated_response = {
-                "response": f"The query '{user_query}' does not appear to be related to the codebase. "
-                            f"Please let me know if you'd like help with programming, functions, or code."
-            }
-            logging.info(f"Unrelated query response: {unrelated_response}")
-            return jsonify(unrelated_response), 200  # Ensure status code 200
-
-        # Load metadata and FAISS index
         metadata = load_metadata(metadata_path)
         index = load_embeddings(index_path)
         query_embedding = generate_embedding(user_query).astype('float32')
 
-        # Retrieve candidates using multi-stage retrieval
         scored_results = multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, metadata, user_query)
 
         if not scored_results:
+            # Fallback for unrelated or unmatched queries
             logging.warning("No valid indices found.")
-            return jsonify({"error": "No matching functions found."})
+            fallback_response = [{
+                "response": f"The query '{user_query}' does not appear to be related to the codebase. Please refine your query.",
+                "function": None,
+                "file": None,
+                "score": None
+            }]
+            return jsonify(fallback_response), 200
 
         responses = []
-
         for final_score, idx, func, matched_file in scored_results:
             func_name = func.get('name', 'Unnamed function')
-            func_code = func.get('code', '')
             func_comment = func.get('comment', '')
-            file_path = matched_file.get('file_path', 'Unknown location')
-
-            # Generate prompt specific to the query and codebase context
+            func_code = func.get('code', '')
             prompt = (
-                f"Using the query: '{user_query}', provide an appropriate response regarding the function '{func_name}'. "
-                f"Here is the function's definition: {func_code}. "
+                f"Explain the purpose of the '{func_name}' function within this codebase. "
+                f"Function code: {func_code}. "
                 f"Comments: {func_comment}. "
-                f"The function is located in the file: {file_path}."
+                f"Query: {user_query}"
             )
 
-            # Query the LLM
             response = query_ollama(prompt, model_name=agent_model_name)
             responses.append({
                 "function": func_name,
-                "file": file_path,
+                "file": matched_file['file_path'],
                 "score": final_score,
                 "response": response
             })
             logging.info(f"Prompted {agent_model_name} with: {prompt}, received: {response}")
-
-        # Print filtered results for debugging
-        for response in responses:
-            print(f"Function: {response['function']}, File: {response['file']}, Score: {response['score']}")
 
         return jsonify(responses)
 
