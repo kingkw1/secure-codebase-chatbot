@@ -173,12 +173,12 @@ def handle_query():
 
         if not is_related_query:
             # Handle unrelated queries
-            unrelated_prompt = (
-                f"The query '{user_query}' does not appear to be related to the codebase. "
-                f"Please let me know if you'd like help with programming, functions, or code."
-            )
-            response = query_ollama(unrelated_prompt, model_name=agent_model_name)
-            return jsonify({"response": response})
+            unrelated_response = {
+                "response": f"The query '{user_query}' does not appear to be related to the codebase. "
+                            f"Please let me know if you'd like help with programming, functions, or code."
+            }
+            logging.info(f"Unrelated query response: {unrelated_response}")
+            return jsonify(unrelated_response), 200  # Ensure status code 200
 
         # Load metadata and FAISS index
         metadata = load_metadata(metadata_path)
