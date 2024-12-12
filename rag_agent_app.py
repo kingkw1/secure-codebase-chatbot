@@ -179,31 +179,21 @@ def handle_query():
             logging.warning("No valid indices found.")
             return jsonify({"error": "No matching functions found."})
 
-        # Identify intent for dynamic prompting
-        is_location_query = any(keyword in user_query.lower() for keyword in ["where", "located", "location"])
         responses = []
 
         for final_score, idx, func, matched_file in scored_results:
             func_name = func.get('name', 'Unnamed function')
-            func_comment = func.get('comment', '')
             func_code = func.get('code', '')
+            func_comment = func.get('comment', '')
             file_path = matched_file.get('file_path', 'Unknown location')
 
-            # Create a dynamic prompt based on query intent
-            if is_location_query:
-                prompt = (
-                    f"Where is the '{func_name}' function located in this codebase? "
-                    f"The function is defined as follows: {func_code}. "
-                    f"It is currently associated with the file: {file_path}. "
-                    f"Query: {user_query}"
-                )
-            else:
-                prompt = (
-                    f"Explain the purpose of the '{func_name}' function within this codebase. "
-                    f"Function code: {func_code}. "
-                    f"Comments: {func_comment}. "
-                    f"Query: {user_query}"
-                )
+            # Create a general-purpose prompt
+            prompt = (
+                f"Using the query: '{user_query}', provide an appropriate response regarding the function '{func_name}'. "
+                f"Here is the function's definition: {func_code}. "
+                f"Comments: {func_comment}. "
+                f"The function is located in the file: {file_path}."
+            )
 
             # Query the LLM
             response = query_ollama(prompt, model_name=agent_model_name)
