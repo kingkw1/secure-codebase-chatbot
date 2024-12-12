@@ -177,8 +177,17 @@ def handle_query():
             query_embedding, index, metadata, user_query
         )
 
-        if scored_results:
-            # If valid results are found, query the LLM with codebase context
+        # Check if query context matches codebase
+        codebase_keywords = [
+            func.get("name", "").lower() for file in metadata["files"] for func in file.get("structure", [])
+        ]
+        codebase_keywords.extend([file["file_path"].lower() for file in metadata["files"]])
+
+        query_keywords = set(word.lower() for word in re.findall(r"\w+", user_query))
+        matches_codebase_context = any(keyword in codebase_keywords for keyword in query_keywords)
+
+        if scored_results and matches_codebase_context:
+            # If query is relevant to the codebase, use codebase-related prompt
             responses = []
             for final_score, idx, func, matched_file in scored_results:
                 func_name = func.get('name', 'Unnamed function')
@@ -200,11 +209,12 @@ def handle_query():
                 })
 
             return jsonify(responses)
+
         else:
-            # No relevant codebase results found; query the LLM directly
+            # If query is unrelated to the codebase, use general-purpose prompt
             logging.info("No relevant data found in the codebase. Querying LLM directly.")
             general_prompt = (
-                f"Answer this query without referencing any codebase: {user_query}"
+                f"Answer this query based solely on general knowledge. Do not reference any specific codebase or programming context: {user_query}"
             )
             direct_response = query_ollama(general_prompt, model_name=agent_model_name)
             return jsonify([{"response": direct_response}])
