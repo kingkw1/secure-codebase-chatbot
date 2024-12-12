@@ -164,52 +164,55 @@ def cross_encoder_score(query, candidate_text):
 @app.route('/query', methods=['POST'])
 def handle_query():
     try:
-        user_query = request.json.get('query', '')
+        user_query = request.json.get('query', '').strip()
         logging.info(f"Received query: {user_query}")
 
+        # Load metadata and embeddings
         metadata = load_metadata(metadata_path)
         index = load_embeddings(index_path)
         query_embedding = generate_embedding(user_query).astype('float32')
 
-        scored_results = multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, metadata, user_query)
+        # Retrieve scored results
+        scored_results = multi_stage_retrieval_with_cross_encoder_reranking(
+            query_embedding, index, metadata, user_query
+        )
 
-        if not scored_results:
-            # Fallback for unrelated or unmatched queries
-            logging.warning("No valid indices found.")
-            fallback_response = [{
-                "response": f"The query '{user_query}' does not appear to be related to the codebase. Please refine your query.",
-                "function": None,
-                "file": None,
-                "score": None
-            }]
-            return jsonify(fallback_response), 200
+        if scored_results:
+            # If valid results are found, query the LLM with codebase context
+            responses = []
+            for final_score, idx, func, matched_file in scored_results:
+                func_name = func.get('name', 'Unnamed function')
+                func_comment = func.get('comment', '')
+                func_code = func.get('code', '')
+                prompt = (
+                    f"Explain the purpose of the '{func_name}' function within this codebase. "
+                    f"Function code: {func_code}. "
+                    f"Comments: {func_comment}. "
+                    f"Query: {user_query}"
+                )
 
-        responses = []
-        for final_score, idx, func, matched_file in scored_results:
-            func_name = func.get('name', 'Unnamed function')
-            func_comment = func.get('comment', '')
-            func_code = func.get('code', '')
-            prompt = (
-                f"Explain the purpose of the '{func_name}' function within this codebase. "
-                f"Function code: {func_code}. "
-                f"Comments: {func_comment}. "
-                f"Query: {user_query}"
+                response = query_ollama(prompt, model_name=agent_model_name)
+                responses.append({
+                    "function": func_name,
+                    "file": matched_file['file_path'],
+                    "score": final_score,
+                    "response": response
+                })
+
+            return jsonify(responses)
+        else:
+            # No relevant codebase results found; query the LLM directly
+            logging.info("No relevant data found in the codebase. Querying LLM directly.")
+            general_prompt = (
+                f"Answer this query without referencing any codebase: {user_query}"
             )
-
-            response = query_ollama(prompt, model_name=agent_model_name)
-            responses.append({
-                "function": func_name,
-                "file": matched_file['file_path'],
-                "score": final_score,
-                "response": response
-            })
-            logging.info(f"Prompted {agent_model_name} with: {prompt}, received: {response}")
-
-        return jsonify(responses)
+            direct_response = query_ollama(general_prompt, model_name=agent_model_name)
+            return jsonify([{"response": direct_response}])
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":

@@ -37,7 +37,7 @@ class Pipeline:
             response.raise_for_status()
             response_json = response.json()
 
-            # Ensure the response contains valid data
+            # Check for a direct LLM response or a codebase-related response
             if isinstance(response_json, list) and response_json:
                 return response_json[0].get("response", "No response found."), response.status_code
             elif isinstance(response_json, dict) and "error" in response_json:
