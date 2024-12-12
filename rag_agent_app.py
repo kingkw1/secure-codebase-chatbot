@@ -167,6 +167,19 @@ def handle_query():
         user_query = request.json.get('query', '').strip()
         logging.info(f"Received query: {user_query}")
 
+        # Determine if the query is related to the codebase
+        related_keywords = {'function', 'code', 'file', 'module', 'path', 'repository', 'class', 'variable'}
+        is_related_query = any(keyword in user_query.lower() for keyword in related_keywords)
+
+        if not is_related_query:
+            # Handle unrelated queries
+            unrelated_prompt = (
+                f"The query '{user_query}' does not appear to be related to the codebase. "
+                f"Please let me know if you'd like help with programming, functions, or code."
+            )
+            response = query_ollama(unrelated_prompt, model_name=agent_model_name)
+            return jsonify({"response": response})
+
         # Load metadata and FAISS index
         metadata = load_metadata(metadata_path)
         index = load_embeddings(index_path)
@@ -187,7 +200,7 @@ def handle_query():
             func_comment = func.get('comment', '')
             file_path = matched_file.get('file_path', 'Unknown location')
 
-            # Create a general-purpose prompt
+            # Generate prompt specific to the query and codebase context
             prompt = (
                 f"Using the query: '{user_query}', provide an appropriate response regarding the function '{func_name}'. "
                 f"Here is the function's definition: {func_code}. "
