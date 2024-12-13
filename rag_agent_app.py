@@ -203,15 +203,22 @@ def handle_query():
             query_embedding, index, metadata, user_query
         )
 
-        # Check if the query is related to the codebase or not
+        # Construct the chat history context
+        history_context = "\n".join(
+            [f"{entry['role'].capitalize()}: {entry['content']}" for entry in chat_histories[user_id]]
+        )
+
         if is_unrelated_query(user_query, metadata):
-            # If the query is unrelated, ignore chat history and just answer based on general knowledge
-            logging.info("Unrelated query. Providing general knowledge response.")
-            prompt = f"User asked: {user_query}\nAnswer based on general knowledge. Do not reference any codebase."
+            # If the query is unrelated, use chat history but avoid referencing the codebase
+            logging.info("Unrelated query. Using chat history without referencing the codebase.")
+            prompt = (
+                f"Chat history:\n{history_context}\n"
+                f"User asked: {user_query}\n"
+                f"Provide a general knowledge answer. Do not reference any codebase."
+            )
         else:
-            # If related to the codebase, include chat history in the prompt
+            # If related to the codebase, use chat history and codebase context
             logging.info("Related query. Using chat history and codebase context.")
-            history_context = "\n".join([f"{entry['role'].capitalize()}: {entry['content']}" for entry in chat_histories[user_id]])
             prompt = (
                 f"Chat history:\n{history_context}\n"
                 f"User asked: {user_query}\n"
@@ -221,8 +228,12 @@ def handle_query():
         # Query the LLM based on the constructed prompt
         response = query_ollama(prompt, model_name=agent_model_name)
 
-        # If response is related to the codebase
+        # Add the assistant's response to the chat history
+        chat_histories[user_id].append({'role': 'assistant', 'content': response})
+
+        # Format response
         if scored_results and not is_unrelated_query(user_query, metadata):
+            # If there are relevant codebase results, include them in the response
             responses = []
             for final_score, idx, func, matched_file in scored_results:
                 func_name = func.get('name', 'Unnamed function')
@@ -236,7 +247,7 @@ def handle_query():
                 })
             return jsonify(responses)
 
-        # If the query is unrelated to the codebase, just send the response from LLM
+        # If no codebase relevance, return the general response
         return jsonify([{"response": response}])
 
     except Exception as e:
