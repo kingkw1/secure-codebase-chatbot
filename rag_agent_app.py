@@ -183,8 +183,15 @@ def handle_query():
     try:
         user_query = request.json.get('query', '').strip()
         user_id = request.json.get('user_id', 'default_user')  # Unique user ID to track separate conversations
+        clear_history = request.json.get('clear_history', False)  # Check if the user wants to clear the chat history
 
-        logging.info(f"Received query from {user_id}: {user_query}")
+        logging.info(f"Received query from {user_id}: {user_query} (clear_history={clear_history})")
+
+        # Clear chat history if requested
+        if clear_history:
+            logging.info(f"Clearing chat history for user: {user_id}")
+            chat_histories[user_id] = deque(maxlen=MAX_HISTORY_LENGTH)
+            return jsonify({"response": "Chat history cleared."})
 
         # Initialize chat history for new user session
         if user_id not in chat_histories:
