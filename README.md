@@ -18,6 +18,33 @@
 pip install -r requirements.txt
 ```
 
+### 3. Install ollama
+
+### 4. Install ollama models
+ollama pull llama3.2
+ollama pull codellama
+
+## Zscaler Certificate Debugging:
+May have a certificate error if receiving the following error:
+
+
+    (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:992)')))
+
+If this happens, it is likely an issue with zscaler and managing certificates. Do the following:
+
+### 1. Get Zscaler certificates
+
+### 2. Place certificates in a folder in C drive
+C:\certificates\ZscalerSHA256.pem
+
+### 3. Set the path to use these certificates
+```markdown
+$env:REQUESTS_CA_BUNDLE = "C:\certificates\ZscalerSHA256.pem"
+```
+
+### 4. Retry running the rag_agent.py file
+This solved the certificate error for me on a company laptop. 
+
 ## Initializing
 ### 1. Run Ollama
 
