@@ -5,10 +5,10 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from analyzer import create_readme_for_directory
+from common import DEFAULT_CODEBASE_DIRECTORY
 
 def test_summary_simple():
-    base_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    directory = os.path.join(base_directory, 'sample_repo')
+    directory = DEFAULT_CODEBASE_DIRECTORY
 
     print("Testing README summary generation for directory:", directory)
 

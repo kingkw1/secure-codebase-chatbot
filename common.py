@@ -5,8 +5,38 @@ import re
 import logging
 import os
 
-metadata_path = os.path.join(os.path.dirname(__file__), 'sample_metadata', 'test_metadata.json')
-index_path = os.path.join(os.path.dirname(__file__), 'sample_metadata', 'embedding_index.faiss')
+DEFAULT_CODEBASE_DIRECTORY = os.path.join(os.path.dirname(__file__), 'sample_repo')  # Specify the directory containing the codebase
+DEFAULT_METADATA_FILE = ".metadata.json"
+DEFAULT_INDEX_FILE = ".index.faiss"
+
+def find_file(directory, filename):
+    for root, dirs, files in os.walk(directory):
+        if filename in files:
+            return os.path.join(root, filename)
+    raise FileNotFoundError(f"{filename} not found in {directory}")
+
+
+def find_metadata_file(directory, filename=DEFAULT_METADATA_FILE):
+    return find_file(directory, filename)
+
+
+def find_index_file(directory, filename=DEFAULT_INDEX_FILE):
+    return find_file(directory, filename)
+
+
+def get_meta_paths(directory=DEFAULT_CODEBASE_DIRECTORY, metadata_filename=DEFAULT_METADATA_FILE, index_filename=DEFAULT_INDEX_FILE, generate_new=False):
+    try: 
+        metadata_file = find_metadata_file(directory, metadata_filename)
+        index_file = find_index_file(directory, index_filename)
+    except FileNotFoundError as e:
+        if generate_new:
+            metadata_file = os.path.join(directory, metadata_filename)
+            index_file = os.path.join(directory, index_filename)
+        else:
+            logging.error(f"Error finding metadata or index file: {e}")
+            raise Exception("Metadata or index file not found. Please ensure they exist in the specified directory.")
+    
+    return metadata_file, index_file
 
 
 def strip_ansi_codes(text):
