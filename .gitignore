@@ -6,3 +6,5 @@ __pycache__/
 
 # IntelliJ IDEA files
 .idea/
+
+test_repos/

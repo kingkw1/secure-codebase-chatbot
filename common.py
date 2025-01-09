@@ -9,6 +9,31 @@ DEFAULT_CODEBASE_DIRECTORY = os.path.join(os.path.dirname(__file__), 'sample_rep
 DEFAULT_METADATA_FILE = ".metadata.json"
 DEFAULT_INDEX_FILE = ".index.faiss"
 
+
+def get_codebase_directory():
+    config_file = os.path.join(os.path.dirname(__file__), 'config.json')
+    
+    if os.path.exists(config_file):
+        try:
+            with open(config_file, 'r') as file:
+                config = json.load(file)
+                config_directory = config.get('codebase_directory', None)
+                if config_directory:
+                    if os.path.isabs(config_directory):
+                        return config_directory
+                    else:
+                        return os.path.join(os.path.dirname(config_file), config_directory)
+                else:
+                    logging.warning("No codebase directory specified in config file. Using default.")
+                    return DEFAULT_CODEBASE_DIRECTORY
+        except (json.JSONDecodeError, IOError) as e:
+            logging.error(f"Error reading config file: {e}")
+            return DEFAULT_CODEBASE_DIRECTORY
+    else:
+        return DEFAULT_CODEBASE_DIRECTORY
+
+CODEBASE_DIRECTORY = get_codebase_directory()
+
 def find_file(directory, filename):
     for root, dirs, files in os.walk(directory):
         if filename in files:
@@ -24,7 +49,7 @@ def find_index_file(directory, filename=DEFAULT_INDEX_FILE):
     return find_file(directory, filename)
 
 
-def get_meta_paths(directory=DEFAULT_CODEBASE_DIRECTORY, metadata_filename=DEFAULT_METADATA_FILE, index_filename=DEFAULT_INDEX_FILE, generate_new=False):
+def get_meta_paths(directory=CODEBASE_DIRECTORY, metadata_filename=DEFAULT_METADATA_FILE, index_filename=DEFAULT_INDEX_FILE, generate_new=False):
     try: 
         metadata_file = find_metadata_file(directory, metadata_filename)
         index_file = find_index_file(directory, index_filename)
