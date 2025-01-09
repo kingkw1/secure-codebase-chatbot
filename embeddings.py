@@ -7,7 +7,7 @@ import os
 import re
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from analyzer import generate_code_structure, generate_comment_with_model, generate_readme_summary, identify_dependencies, parse_code_structure
-from common import get_meta_paths
+from common import get_meta_paths, CODEBASE_DIRECTORY
 from models import embedding_model, embedding_tokenizer
 from tqdm import tqdm
 
@@ -110,7 +110,7 @@ def add_comment_to_code(file_path, code_structure):
         file.writelines(lines)
 
 
-def extract_repository_metadata(directory='.'):
+def extract_repository_metadata(directory):
     """
     Extract metadata for a code repository located in the specified directory.
     """
@@ -119,13 +119,13 @@ def extract_repository_metadata(directory='.'):
         "files": [],
         "dependencies": identify_dependencies(directory)
     }
-    python_files = []
+    source_files = []
     for root, _, files in os.walk(directory):
         for file in files:
-            if file.endswith('.py'):
-                python_files.append(os.path.join(root, file))
+            if file.endswith('.py') or file.endswith('.java'):
+                source_files.append(os.path.join(root, file))
     
-    for file_path in python_files:
+    for file_path in source_files:
         file_structure = parse_code_structure(file_path)
 
         relative_path = os.path.relpath(file_path, directory)
@@ -160,9 +160,9 @@ def main():
 
     # Step 1: Extract repository metadata
     print("Extracting repository metadata...")
-    metadata = extract_repository_metadata()
+    metadata = extract_repository_metadata(CODEBASE_DIRECTORY)
+    print("Saving metadata to", metadata_path)
     save_metadata(metadata, metadata_path)
-    print("Metadata saved to metadata.json\n")
 
     # Step 2: Load metadata and extract text data
     text_data = extract_text_data(metadata)
@@ -174,7 +174,8 @@ def main():
 
     # Step 4: Create and save the FAISS index
     print("Creating the FAISS index...")
-    index = create_faiss_index(embeddings, index_path)
+    index = create_faiss_index(embeddings)
+    print("Saving FAISS index to", index_path)
     save_faiss_index(index, index_path)
     print("Index created successfully!\n")
 

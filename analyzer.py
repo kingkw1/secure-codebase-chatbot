@@ -3,6 +3,7 @@ import os
 import re
 from collections import Counter
 import sys
+import javalang
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import query_ollama
@@ -36,10 +37,13 @@ def clean_text(response_text):
     return response_text
 
 
-def parse_code_structure(file_path):
+def parse_python_code_structure(file_path):
     """
     Parse the code structure of a Python file and extract functions and classes.
     """
+    if not file_path.endswith('.py'):
+        raise ValueError("The file is not a Python file")
+        
     with open(file_path, "r") as file:
         file_content = file.read()
 
@@ -68,7 +72,54 @@ def parse_code_structure(file_path):
             })
 
     return code_structure
+
+
+def parse_java_code_structure(file_path):
+    """
+    Parse the code structure of a Java file and extract methods and classes.
+    """
+    if not file_path.endswith('.java'):
+        raise ValueError("The file is not a Java file")
         
+    with open(file_path, "r") as file:
+        file_content = file.read()
+
+    # Parse the file content using javalang
+    tree = javalang.parse.parse(file_content)
+    
+    # Store code structure details
+    code_structure = []
+
+    for path, node in tree:
+        if isinstance(node, javalang.tree.MethodDeclaration):
+            code_structure.append({
+                "type": "method",
+                "name": node.name,
+                "start_line": node.position.line,
+                "end_line": node.position.line + len(node.body) - 1 if node.body else node.position.line,
+                "code": file_content[node.position.line - 1:node.position.line + len(node.body) - 1] if node.body else ""
+            })
+        elif isinstance(node, javalang.tree.ClassDeclaration):
+            code_structure.append({
+                "type": "class",
+                "name": node.name,
+                "start_line": node.position.line,
+                "end_line": node.position.line + len(node.body) - 1 if node.body else node.position.line,
+                "code": file_content[node.position.line - 1:node.position.line + len(node.body) - 1] if node.body else ""
+            })
+
+    return code_structure
+
+
+def parse_code_structure(file_path):
+    """
+    Parse the code structure of a file and extract functions and classes.
+    """
+    if file_path.endswith('.py'):
+        return parse_python_code_structure(file_path)
+    elif file_path.endswith('.java'):
+        return parse_java_code_structure(file_path)
+
 
 def generate_code_structure(directory='.'):
     """ Generates a detailed outline of the code structure by listing key files, functions, and classes. """
@@ -81,7 +132,7 @@ def generate_code_structure(directory='.'):
                 structure.append(f"- {relative_path}:")
                 
                 # Get detailed structure of each file (functions and classes)
-                file_structure = parse_code_structure(os.path.join(root, file))
+                file_structure = parse_python_code_structure(os.path.join(root, file))
                 
                 # Add functions and classes to the structure
                 for item in file_structure:
