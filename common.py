@@ -47,11 +47,11 @@ def find_file(directory, filename):
     raise FileNotFoundError(f"{filename} not found in {directory}")
 
 
-def find_metadata_file(directory, filename=DEFAULT_METADATA_FILE):
+def find_metadata_file(directory=CODEBASE_DIRECTORY, filename=DEFAULT_METADATA_FILE):
     return find_file(directory, filename)
 
 
-def find_index_file(directory, filename=DEFAULT_INDEX_FILE):
+def find_index_file(directory=CODEBASE_DIRECTORY, filename=DEFAULT_INDEX_FILE):
     return find_file(directory, filename)
 
 
