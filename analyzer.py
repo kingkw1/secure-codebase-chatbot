@@ -85,28 +85,40 @@ def parse_java_code_structure(file_path):
         file_content = file.read()
 
     # Parse the file content using javalang
-    tree = javalang.parse.parse(file_content)
+    try:
+        tree = javalang.parse.parse(file_content)
+    except javalang.parser.JavaSyntaxError as e:
+        raise ValueError(f"Failed to parse Java file {file_path}: {e}")
     
-    # Store code structure details
     code_structure = []
 
-    for path, node in tree:
-        if isinstance(node, javalang.tree.MethodDeclaration):
-            code_structure.append({
-                "type": "method",
-                "name": node.name,
-                "start_line": node.position.line,
-                "end_line": node.position.line + len(node.body) - 1 if node.body else node.position.line,
-                "code": file_content[node.position.line - 1:node.position.line + len(node.body) - 1] if node.body else ""
-            })
-        elif isinstance(node, javalang.tree.ClassDeclaration):
-            code_structure.append({
-                "type": "class",
-                "name": node.name,
-                "start_line": node.position.line,
-                "end_line": node.position.line + len(node.body) - 1 if node.body else node.position.line,
-                "code": file_content[node.position.line - 1:node.position.line + len(node.body) - 1] if node.body else ""
-            })
+    # Extract classes and methods
+    for path, node in tree.filter(javalang.tree.ClassDeclaration):
+        class_start = node.position.line
+        class_end = max(member.position.line for member in node.body if member.position) if node.body else class_start
+
+        code_structure.append({
+            "type": "class",
+            "name": node.name,
+            "start_line": class_start,
+            "end_line": class_end,
+            "code": "\n".join(file_content.splitlines()[class_start - 1:class_end])
+        })
+
+    for path, node in tree.filter(javalang.tree.MethodDeclaration):
+        method_start = node.position.line
+        method_end = max(statement.position.line for statement in node.body if statement.position) if node.body else method_start
+        annotations = [ann.name for ann in node.annotations] if node.annotations else []
+
+        code_structure.append({
+            "type": "method",
+            "name": node.name,
+            "start_line": method_start,
+            "end_line": method_end,
+            "parameters": [param.name for param in node.parameters],
+            "annotations": annotations,
+            "code": "\n".join(file_content.splitlines()[method_start - 1:method_end])
+        })
 
     return code_structure
 
