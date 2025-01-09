@@ -7,13 +7,14 @@ import os
 import re
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from analyzer import generate_code_structure, generate_comment_with_model, generate_readme_summary, identify_dependencies, parse_code_structure
-from common import index_path
+from common import get_meta_paths
 from models import embedding_model, embedding_tokenizer
 from tqdm import tqdm
 
 # Set environment variable to avoid conflicts with MKL
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+metadata_path, index_path = get_meta_paths(generate_new=True)
 
 def load_metadata(file_path):
     """
@@ -123,7 +124,7 @@ def extract_repository_metadata(directory='.'):
         for file in files:
             if file.endswith('.py'):
                 python_files.append(os.path.join(root, file))
-
+    
     for file_path in python_files:
         file_structure = parse_code_structure(file_path)
 
@@ -144,7 +145,7 @@ def extract_repository_metadata(directory='.'):
     return repository_metadata
 
 
-def save_metadata(metadata, output_path="metadata.json"):
+def save_metadata(metadata, output_path):
     """
     Save the repository metadata to a JSON file.
     """
@@ -160,7 +161,7 @@ def main():
     # Step 1: Extract repository metadata
     print("Extracting repository metadata...")
     metadata = extract_repository_metadata()
-    save_metadata(metadata)
+    save_metadata(metadata, metadata_path)
     print("Metadata saved to metadata.json\n")
 
     # Step 2: Load metadata and extract text data

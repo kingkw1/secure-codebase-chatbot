@@ -3,12 +3,12 @@ import os
 
 # Add the parent directory to the sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from embeddings import extract_repository_metadata
+from common import DEFAULT_CODEBASE_DIRECTORY
 
 def test_metadata_extraction():
     base_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    directory = os.path.join(base_directory, 'sample_repo')
+    directory = DEFAULT_CODEBASE_DIRECTORY
 
     print("Testing metadata extraction for directory:", directory)
 
