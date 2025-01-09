@@ -20,9 +20,15 @@ def get_codebase_directory():
                 config_directory = config.get('codebase_directory', None)
                 if config_directory:
                     if os.path.isabs(config_directory):
-                        return config_directory
+                        codebase_directory = config_directory
                     else:
-                        return os.path.join(os.path.dirname(config_file), config_directory)
+                        codebase_directory = os.path.join(os.path.dirname(config_file), config_directory)
+                    
+                    if not os.path.exists(codebase_directory):
+                        logging.error(f"Specified codebase directory does not exist: {codebase_directory}. Using default.")
+                        return DEFAULT_CODEBASE_DIRECTORY
+                    
+                    return codebase_directory
                 else:
                     logging.warning("No codebase directory specified in config file. Using default.")
                     return DEFAULT_CODEBASE_DIRECTORY
