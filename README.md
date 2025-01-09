@@ -18,7 +18,14 @@
 pip install -r requirements.txt
 ```
 
-## Initializing
+## Crawling your repo
+### 1. Modify config file
+
+### 2. Crawl the repo by running embeddings.py
+
+### 3. Initialize the chatbot
+
+## Initializing Chatbot
 ### 1. Run Ollama
 
 ### 2. Serve the flask app
