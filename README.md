@@ -18,6 +18,10 @@
 pip install -r requirements.txt
 ```
 
+### Install Pipeline dependencies
+```markdown
+pip install -r pipelines/requirements-minimum.txt
+```
 ### 3. Install ollama
 
 ### 4. Install ollama models
@@ -42,8 +46,18 @@ C:\certificates\ZscalerSHA256.pem
 $env:REQUESTS_CA_BUNDLE = "C:\certificates\ZscalerSHA256.pem"
 ```
 
-### 4. Retry running the rag_agent.py file
+### 4. Verify that the environment variable was set
+```markdown
+echo $env:REQUESTS_CA_BUNDLE
+```
+
+### 5. Retry running the rag_agent.py file
 This solved the certificate error for me on a company laptop. 
+
+#### Note: The solution described above may be a temporary fix, and the environment variable may need to be set every time computer restarts. To make it permanent, set the variable as shown below. Adjust the path accordingly.
+```markdown
+[System.Environment]::SetEnvironmentVariable("REQUESTS_CA_BUNDLE", "C:\certificates\ZscalerSHA256.pem", "User")
+```
 
 ## Initializing
 ### 1. Run Ollama
