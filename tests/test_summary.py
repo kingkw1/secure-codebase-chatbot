@@ -3,17 +3,17 @@ import os
 
 # Add the parent directory to the sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from analyzer import generate_readme_summary
+from common import CODEBASE_DIRECTORY
 
-from analyzer import create_readme_for_directory
 
 def test_summary_simple():
-    base_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    directory = os.path.join(base_directory, 'sample_repo')
+    directory = CODEBASE_DIRECTORY
 
     print("Testing README summary generation for directory:", directory)
 
     # Generate README content using the summary function
-    readme_content = create_readme_for_directory(directory)
+    readme_content = generate_readme_summary(directory)
 
     print("Generated README Content:")
     print(readme_content)

@@ -18,48 +18,14 @@
 pip install -r requirements.txt
 ```
 
-### Install Pipeline dependencies
-```markdown
-pip install -r pipelines/requirements-minimum.txt
-```
-### 3. Install ollama
+## Crawling your repo
+### 1. Modify config file
 
-### 4. Install ollama models
-ollama pull llama3.2
-ollama pull codellama
+### 2. Crawl the repo by running embeddings.py
 
-## Zscaler Certificate Debugging:
-May have a certificate error if receiving the following error:
+### 3. Initialize the chatbot
 
-
-    (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:992)')))
-
-If this happens, it is likely an issue with zscaler and managing certificates. Do the following:
-
-### 1. Get Zscaler certificates
-
-### 2. Place certificates in a folder in C drive
-C:\certificates\ZscalerSHA256.pem
-
-### 3. Set the path to use these certificates
-```markdown
-$env:REQUESTS_CA_BUNDLE = "C:\certificates\ZscalerSHA256.pem"
-```
-
-### 4. Verify that the environment variable was set
-```markdown
-echo $env:REQUESTS_CA_BUNDLE
-```
-
-### 5. Retry running the rag_agent.py file
-This solved the certificate error for me on a company laptop. 
-
-#### Note: The solution described above may be a temporary fix, and the environment variable may need to be set every time computer restarts. To make it permanent, set the variable as shown below. Adjust the path accordingly.
-```markdown
-[System.Environment]::SetEnvironmentVariable("REQUESTS_CA_BUNDLE", "C:\certificates\ZscalerSHA256.pem", "User")
-```
-
-## Initializing
+## Initializing Chatbot
 ### 1. Run Ollama
 
 ### 2. Serve the flask app

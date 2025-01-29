@@ -4,10 +4,12 @@ import json
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common import get_meta_paths
 
 # File paths
-embedding_index_path = os.path.join(os.path.dirname(__file__), '..', 'sample_metadata', 'embedding_index.faiss')
-metadata_path = os.path.join(os.path.dirname(__file__), '..', 'sample_metadata', 'test_metadata.json')
+metadata_path, embedding_index_path= get_meta_paths(generate_new=False)
 
 # Load embeddings from FAISS index
 def load_faiss(file_path):

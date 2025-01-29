@@ -10,25 +10,22 @@ from torch.nn.functional import softmax
 from collections import deque
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from common import metadata_path, index_path, query_ollama
+from common import query_ollama, get_meta_paths
 from models import embedding_model, embedding_tokenizer, cross_encoder_model, cross_encoder_tokenizer, agent_model_name
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+# Input variables  ------------------
+test_function_penalty = 100
+# -----------------------------------
 
 # Initialize Flask application
 app = Flask(__name__)
 CORS(app)
+logging.basicConfig(level=logging.INFO) # Setup logging
 
-# Set a max history length to avoid sending excessive data to the LLM
-MAX_HISTORY_LENGTH = 5  # Keep the last 5 exchanges (you can adjust as needed)
-
-# A global dictionary to store the chat history for each user session
-chat_histories = {}
-
-test_function_penalty = 100
+# Get paths for metadata and index files
+metadata_path, index_path = get_meta_paths()
 
 def load_metadata(file_path):
     with open(file_path, 'r') as f:
