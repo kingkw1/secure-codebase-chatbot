@@ -122,7 +122,7 @@ def extract_repository_metadata(directory):
     source_files = []
     for root, _, files in os.walk(directory):
         for file in files:
-            if file.endswith('.py') or file.endswith('.java'):
+            if file.endswith('.py') or file.endswith('.java') or file.endswith('.ts'):
                 source_files.append(os.path.join(root, file))
     
     for file_path in source_files:

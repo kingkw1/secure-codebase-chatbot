@@ -4,6 +4,7 @@ import re
 from collections import Counter
 import sys
 import javalang
+import tsparser  # Assuming you have a TypeScript parser library
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import query_ollama
@@ -128,6 +129,42 @@ def parse_java_code_structure(file_path):
 
     return code_structure
 
+def parse_typescript_code_structure(file_path):
+    """
+    Parse the code structure of a TypeScript file and extract functions and classes.
+    """
+    if not file_path.endswith('.ts'):
+        raise ValueError("The file is not a TypeScript file")
+        
+    with open(file_path, "r") as file:
+        file_content = file.read()
+
+    # Parse the file content using a TypeScript parser
+    tree = tsparser.parse(file_content)
+    
+    code_structure = []
+
+    # Extract classes and functions
+    for node in tree:
+        if node.type == 'ClassDeclaration':
+            code_structure.append({
+                "type": "class",
+                "name": node.name,
+                "start_line": node.start_line,
+                "end_line": node.end_line,
+                "code": node.code
+            })
+        elif node.type == 'FunctionDeclaration':
+            code_structure.append({
+                "type": "function",
+                "name": node.name,
+                "start_line": node.start_line,
+                "end_line": node.end_line,
+                "code": node.code
+            })
+
+    return code_structure
+
 def parse_code_structure(file_path):
     """
     Parse the code structure of a file and extract functions, methods, and classes.
@@ -142,6 +179,7 @@ def parse_code_structure(file_path):
 # Register parsers
 register_parser('.py', parse_python_code_structure)
 register_parser('.java', parse_java_code_structure)
+register_parser('.ts', parse_typescript_code_structure)
 
 def generate_code_structure(directory='.'):
     """
