@@ -4,6 +4,7 @@ import re
 from collections import Counter
 import sys
 import javalang
+from custom_parsers.ts_parser import parse_ts_code_structure
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import query_ollama
@@ -142,6 +143,7 @@ def parse_code_structure(file_path):
 # Register parsers
 register_parser('.py', parse_python_code_structure)
 register_parser('.java', parse_java_code_structure)
+register_parser('.ts', parse_ts_code_structure)
 
 def generate_code_structure(directory='.'):
     """
