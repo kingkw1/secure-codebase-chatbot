@@ -8,7 +8,6 @@
 #### 4. **LLM Integration**: Query-able LLM informed about repos
 #### 5. **Query Bot Deployment**: Chatbot interface
 
-
 ## Installation
 
 ### 1. Install Python version 3.11
@@ -73,3 +72,9 @@ Note: These tests are largely subjective in nature
 #### 4. test_metadata_extraction
 #### 5. test_embeddings
 #### 6. test_query
+
+
+## Certificate errors on company machines:
+```
+python -m pip install --upgrade pip --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org --cert C:\certificates\ZscalerSHA256.pem  
+```
