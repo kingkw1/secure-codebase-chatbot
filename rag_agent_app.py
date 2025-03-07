@@ -17,12 +17,16 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 # Input variables  ------------------
 test_function_penalty = 100
+MAX_HISTORY_LENGTH = 5
 # -----------------------------------
 
 # Initialize Flask application
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO) # Setup logging
+
+# Initialize chat history
+chat_histories = {}
 
 # Get paths for metadata and index files
 metadata_path, index_path = get_meta_paths()
