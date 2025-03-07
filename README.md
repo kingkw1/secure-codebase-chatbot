@@ -8,7 +8,6 @@
 #### 4. **LLM Integration**: Query-able LLM informed about repos
 #### 5. **Query Bot Deployment**: Chatbot interface
 
-
 ## Installation
 
 ### 1. Install Python version 3.11
@@ -54,9 +53,18 @@ http://localhost:8080
 - Note: Can be skipped if pipeline existed within the directory: repo_chatbot/pipelines/pipelines, and has not been changed
 
 http://localhost:8080/admin/settings
+#### Connect pipelines
+> Settings > Connections > Manage OpenAI API Connections
+- Add a new connection:
+- API URL: http://locahost:9099 
+- API key: 0p3n-w3bu!
+- (not really sure why we need to enter this as an OpenAI API connection, except that the Ollama API connections are missing fields that we need)
+
+#### Connect the custom pipelines
 > Settings > Pipelines > Pipeline Valves 
 - Verify that "flask_app_pipeline (pipe)" is within the Pipelines Valves
 - Upload pipeline here if needed
+- (if pipelines says "Pipelines not detected", confirm that pipelines is connected as indicated in the step above)
 
 ### 7. Select the pipeline from wthin chat window.
 http://localhost:8080
@@ -73,3 +81,9 @@ Note: These tests are largely subjective in nature
 #### 4. test_metadata_extraction
 #### 5. test_embeddings
 #### 6. test_query
+
+
+## Certificate errors on company machines:
+```
+python -m pip install --upgrade pip --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org --cert C:\certificates\ZscalerSHA256.pem  
+```

@@ -7,6 +7,7 @@ import re
 import sys
 import os
 from torch.nn.functional import softmax
+from collections import deque
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import query_ollama, get_meta_paths
@@ -16,12 +17,16 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 # Input variables  ------------------
 test_function_penalty = 100
+MAX_HISTORY_LENGTH = 5
 # -----------------------------------
 
 # Initialize Flask application
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO) # Setup logging
+
+# Initialize chat history
+chat_histories = {}
 
 # Get paths for metadata and index files
 metadata_path, index_path = get_meta_paths()
@@ -163,68 +168,99 @@ def cross_encoder_score(query, candidate_text):
     else:
         return scores[0][0].item()
 
+# Helper function to check if the query is likely unrelated to the codebase or context
+def is_unrelated_query(query, metadata):
+    # Check for the presence of codebase-related keywords in the query
+    codebase_keywords = [
+        func.get("name", "").lower() for file in metadata["files"] for func in file.get("structure", [])
+    ]
+    query_keywords = set(word.lower() for word in re.findall(r"\w+", query))
+
+    # If there are no relevant codebase terms in the query, it's likely unrelated to the codebase
+    return not any(keyword in query_keywords for keyword in codebase_keywords)
+
 @app.route('/query', methods=['POST'])
 def handle_query():
     try:
         user_query = request.json.get('query', '').strip()
-        logging.info(f"Received query: {user_query}")
+        user_id = request.json.get('user_id', 'default_user')  # Unique user ID to track separate conversations
+        clear_history = request.json.get('clear_history', False)  # Check if the user wants to clear the chat history
+
+        logging.info(f"Received query from {user_id}: {user_query} (clear_history={clear_history})")
+
+        # Clear chat history if requested
+        if clear_history:
+            logging.info(f"Clearing chat history for user: {user_id}")
+            chat_histories[user_id] = deque(maxlen=MAX_HISTORY_LENGTH)
+            return jsonify({"response": "Chat history cleared."})
+
+        # Initialize chat history for new user session
+        if user_id not in chat_histories:
+            chat_histories[user_id] = deque(maxlen=MAX_HISTORY_LENGTH)
+
+        # Append the new user query to the chat history
+        chat_histories[user_id].append({'role': 'user', 'content': user_query})
 
         # Load metadata and embeddings
         metadata = load_metadata(metadata_path)
         index = load_embeddings(index_path)
         query_embedding = generate_embedding(user_query).astype('float32')
 
-        # Retrieve scored results
+        # Retrieve scored results (relevant codebase context)
         scored_results = multi_stage_retrieval_with_cross_encoder_reranking(
             query_embedding, index, metadata, user_query
         )
 
-        # Check if query context matches codebase
-        codebase_keywords = [
-            func.get("name", "").lower() for file in metadata["files"] for func in file.get("structure", [])
-        ]
-        codebase_keywords.extend([file["file_path"].lower() for file in metadata["files"]])
+        # Construct the chat history context
+        history_context = "\n".join(
+            [f"{entry['role'].capitalize()}: {entry['content']}" for entry in chat_histories[user_id]]
+        )
 
-        query_keywords = set(word.lower() for word in re.findall(r"\w+", user_query))
-        matches_codebase_context = any(keyword in codebase_keywords for keyword in query_keywords)
+        if is_unrelated_query(user_query, metadata):
+            # If the query is unrelated, use chat history but avoid referencing the codebase
+            logging.info("Unrelated query. Using chat history without referencing the codebase.")
+            prompt = (
+                f"Chat history:\n{history_context}\n"
+                f"User asked: {user_query}\n"
+                f"Provide a general knowledge answer. Do not reference any codebase."
+            )
+        else:
+            # If related to the codebase, use chat history and codebase context
+            logging.info("Related query. Using chat history and codebase context.")
+            prompt = (
+                f"Chat history:\n{history_context}\n"
+                f"User asked: {user_query}\n"
+                f"Explain the purpose of the function or code related to the query. Provide a detailed answer."
+            )
 
-        if scored_results and matches_codebase_context:
-            # If query is relevant to the codebase, use codebase-related prompt
+        # Query the LLM based on the constructed prompt
+        response = query_ollama(prompt, model_name=agent_model_name)
+
+        # Add the assistant's response to the chat history
+        chat_histories[user_id].append({'role': 'assistant', 'content': response})
+
+        # Format response
+        if scored_results and not is_unrelated_query(user_query, metadata):
+            # If there are relevant codebase results, include them in the response
             responses = []
             for final_score, idx, func, matched_file in scored_results:
                 func_name = func.get('name', 'Unnamed function')
                 func_comment = func.get('comment', '')
                 func_code = func.get('code', '')
-                prompt = (
-                    f"Explain the purpose of the '{func_name}' function within this codebase. "
-                    f"Function code: {func_code}. "
-                    f"Comments: {func_comment}. "
-                    f"Query: {user_query}"
-                )
-
-                response = query_ollama(prompt, model_name=agent_model_name)
                 responses.append({
                     "function": func_name,
                     "file": matched_file['file_path'],
                     "score": final_score,
                     "response": response
                 })
-
             return jsonify(responses)
 
-        else:
-            # If query is unrelated to the codebase, use general-purpose prompt
-            logging.info("No relevant data found in the codebase. Querying LLM directly.")
-            general_prompt = (
-                f"Answer this query based solely on general knowledge. Do not reference any specific codebase or programming context: {user_query}"
-            )
-            direct_response = query_ollama(general_prompt, model_name=agent_model_name)
-            return jsonify([{"response": direct_response}])
+        # If no codebase relevance, return the general response
+        return jsonify([{"response": response}])
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 
 if __name__ == "__main__":
