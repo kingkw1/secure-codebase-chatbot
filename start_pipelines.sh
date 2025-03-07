@@ -137,4 +137,5 @@ fi
 # pip install -r requirements-minimum.txt
 
 # Start the server
-uvicorn main:app --host "$HOST" --port "$PORT" --forwarded-allow-ips '*'
+# uvicorn main:app --host "$HOST" --port "$PORT" --forwarded-allow-ips '*'
+../.venv/Scripts/python.exe -m uvicorn main:app --host "$HOST" --port "$PORT" --forwarded-allow-ips=\*
