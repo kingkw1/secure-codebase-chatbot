@@ -40,6 +40,12 @@ bash start_pipelines.sh
 
 - Note: After the pipelines have been served, and open-webui finds them, the pipelines can be edited and then updated within the webui from the admin panel, rather than restarting the pipeline server
 
+- Note: If receiving a bunch of syntax errors, do the following IN A GIT BASH WINDOW:
+    ```markdown
+    cd your/project/directory
+    dos2unix start_pipelines.sh
+    ```
+
 ### 4. Serve open-webui 
 ```markdown
 .\.venv\Scripts\activate
@@ -53,18 +59,31 @@ http://localhost:8080
 - Note: Can be skipped if pipeline existed within the directory: repo_chatbot/pipelines/pipelines, and has not been changed
 
 http://localhost:8080/admin/settings
+
 #### Connect pipelines
 > Settings > Connections > Manage OpenAI API Connections
 - Add a new connection:
-- API URL: http://locahost:9099 
-- API key: 0p3n-w3bu!
+    - API URL: http://locahost:9099 
+    - API key: 0p3n-w3bu!
 - (not really sure why we need to enter this as an OpenAI API connection, except that the Ollama API connections are missing fields that we need)
 
 #### Connect the custom pipelines
 > Settings > Pipelines > Pipeline Valves 
-- Verify that "flask_app_pipeline (pipe)" is within the Pipelines Valves
-- Upload pipeline here if needed
-- (if pipelines says "Pipelines not detected", confirm that pipelines is connected as indicated in the step above)
+- If "flask_app_pipeline (pipe)" is NOT within the Pipelines Valves, then upload pipeline here
+- If pipelines says "Pipelines not detected", confirm that pipelines is connected as indicated in the step above
+- Select the chatbot's endpoint api: 
+    - Endpoint Api: <your_endpoint_api>>
+    - To get <your_endpoint_api>, look at the terminal window in which we ran rag_agent_app.py. It should say the following:
+
+```markdown
+PS address\to\your\project\repo_chatbot> python rag_agent_app.py
+ * Serving Flask app 'rag_agent_app'
+ * Debug mode: off
+INFO:werkzeug:WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.2.0.2:5001   (THIS IS <YOUR_ENDPOINT_API>)
+```
 
 ### 7. Select the pipeline from wthin chat window.
 http://localhost:8080
