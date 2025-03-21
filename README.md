@@ -85,6 +85,38 @@ pip install -r requirements.txt
 
 ---
 
+## Azure Deployment Diagram 
+```mermaid
+graph TD
+    A["Private GitHub Repo / GitHub Enterprise 🔒"] -->|🔒 Pull Code| B1["Repo Crawler & Metadata Extractor 🔒"]
+    
+    subgraph Server["Secure Azure VM / On-Prem Server 🔒"]
+        B1["Repo Crawler & Metadata Extractor 🔒"]
+        B2["FAISS Vector DB (Private) 🔒"]
+        B3["Ollama LLM API (Self-hosted) 🔒"]
+        B4["Flask App (RAG Service) 🔒"]
+        B5["Open WebUI (Chatbot Interface) 🔒"]
+    end
+    
+    B1 --> B2
+    B1 --> B3
+    B1 --> B4
+    B4 --> B5
+    B5 -->|🔒 Secure HTTPS / Internal IP| C["Internal Developer Machines 🔒"]
+    
+    style A fill:#d9e8fb,stroke:#333,stroke-width:2px
+    style B1 fill:#e0f7da,stroke:#333
+    style B2 fill:#e0f7da,stroke:#333
+    style B3 fill:#e0f7da,stroke:#333
+    style B4 fill:#e0f7da,stroke:#333
+    style B5 fill:#e0f7da,stroke:#333
+    style C fill:#fbcfe8,stroke:#333,stroke-width:2px
+    
+    click B1 "https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-overview" "Azure VNet: Private traffic only"
+
+```
+---
+
 ## 🧰 **Development Workflow**
 
 - Code and test **locally** or inside your private network.
