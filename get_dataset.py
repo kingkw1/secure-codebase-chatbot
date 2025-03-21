@@ -1,10 +1,12 @@
 import os
 from datasets import load_dataset
 
+# Create a folder to store the dataset
 parent_folder = "evaluation_datasets"
 if not os.path.exists(parent_folder):
     os.makedirs(parent_folder)
 
+# Load the dataset and save it to disk
 storage_folder = os.path.join(parent_folder, "codesearchnet_python")
 if os.path.exists(storage_folder):
     print(f"Dataset already exists at {storage_folder}.")
