@@ -1,108 +1,132 @@
-# repo_chatbot
 
-## Process Overview
+# 🔐 secure-codebase-chatbot
 
-#### 1. **Code Describer & Interpreter**: Descriptive summaries & comments
-#### 2. **Document Crawler**: Structured metadata linked to each repo
-#### 3. **Embeddings-Based Indexer**: Vector database
-#### 4. **LLM Integration**: Query-able LLM informed about repos
-#### 5. **Query Bot Deployment**: Chatbot interface
+A **privacy-first, AI-powered chatbot** for navigating and understanding private codebases. Designed to integrate with **Azure AI Services** and operate securely on private infrastructure—ideal for sensitive environments where keeping code confidential is critical.
 
-## Installation
+---
 
-### 1. Install Python version 3.11
+## 🚀 Features
 
-### 2. Install Depedancies
-```markdown
+### 1. **Private Codebase Analysis**  
+- Crawls local/private repositories (no third-party code exposure).  
+- Generates structured metadata for each project (functions, files, descriptions).
+
+### 2. **Embeddings-based Search Engine**  
+- Builds a private **vector database** (FAISS) for fast, secure lookups.  
+- Supports advanced semantic search for code structure and documentation.
+
+### 3. **LLM-Powered Insights**  
+- Integrates with **Azure OpenAI Service** or other on-prem LLM deployments.  
+- Produces code summaries, documentation, and intelligent responses to code queries.
+
+### 4. **Customizable Chatbot Interface**  
+- Connects to **Open WebUI** via pipelines.  
+- Query the chatbot securely via browser (localhost) or internal networks.
+
+---
+
+## ⚙️ **Installation**
+
+### 1. Prerequisites
+- **Python 3.11+**
+- **Ollama** (for running local models)
+- **Open WebUI** (chat interface)
+- Azure AI Services or a locally hosted LLM
+
+### 2. Clone and install dependencies
+```bash
+git clone https://github.com/your-username/secure-codebase-chatbot.git
+cd secure-codebase-chatbot
 pip install -r requirements.txt
 ```
 
-## Crawling your repo
-### 1. Modify config file
+---
 
-### 2. Crawl the repo by running embeddings.py
+## 🗂️ **How It Works**
 
-### 3. Initialize the chatbot
+1. **Crawl a private repo**
+   - Configure your repo settings in `config/`.
+   - Run the crawler to generate metadata and embeddings:
 
-## Initializing Chatbot
-### 1. Run Ollama
-
-### 2. Serve the flask app
-```markdown
-.\.venv\Scripts\activate
-python rag_agent_app.py
-```
-
-### 3. Serve the pipelines
-```markdown
-bash start_pipelines.sh
-```
-
-- Note: After the pipelines have been served, and open-webui finds them, the pipelines can be edited and then updated within the webui from the admin panel, rather than restarting the pipeline server
-
-- Note: If receiving a bunch of syntax errors, do the following IN A GIT BASH WINDOW:
-    ```markdown
-    cd your/project/directory
-    dos2unix start_pipelines.sh
+    ```bash
+    python embeddings.py
     ```
 
-### 4. Serve open-webui 
-```markdown
-.\.venv\Scripts\activate
-open-webui serve
+2. **Launch the chatbot backend**
+   ```bash
+   .\.venv\Scripts\activate
+   python rag_agent_app.py
+   ```
+
+3. **Serve the pipelines (for Open WebUI integration)**
+   ```bash
+   bash start_pipelines.sh
+   ```
+
+4. **Launch Open WebUI**
+   ```bash
+   open-webui serve
+   ```
+
+5. **Connect everything via browser**  
+   Open `http://localhost:8080` and link the pipeline:
+   - **Admin Panel > Settings > Connections > OpenAI API Connection**  
+     - API URL: `http://localhost:9099`  
+     - API Key: `0p3n-w3bu!`
+
+   - **Admin Panel > Pipelines > Pipeline Valves**  
+     - Connect your chatbot pipeline to the endpoint shown by `rag_agent_app.py`.
+
+6. **Chat with your private repo!**  
+   - Select the custom pipeline inside Open WebUI chat window (top-left dropdown).  
+   - Ask questions like:
+     - "What does the `process_data()` function do?"  
+     - "Summarize the purpose of `user_controller.py`."
+
+---
+
+## 🧰 **Development Workflow**
+
+- Code and test **locally** or inside your private network.
+- Your codebase **never leaves your infrastructure**—no cloud uploads.
+- Fully compatible with **air-gapped environments**.
+
+---
+
+## 🧪 **Debugging & Tests**
+
+To verify core features, run:
+```bash
+python tests/test_connection.py
+python tests/test_comment.py
+python tests/test_summary.py
+python tests/test_metadata_extraction.py
+python tests/test_embeddings.py
+python tests/test_query.py
 ```
 
-### 5. Open open-webui in browser
-http://localhost:8080
+---
 
-### 6. Connect the pipeline within the browser
-- Note: Can be skipped if pipeline existed within the directory: repo_chatbot/pipelines/pipelines, and has not been changed
+## 🔐 **Why Privacy-First?**
 
-http://localhost:8080/admin/settings
+Unlike traditional dev chatbots, this system is designed for teams working on **proprietary or regulated codebases**. Keep your sensitive code **private, secure, and compliant** while still leveraging the power of modern AI tooling.
 
-#### Connect pipelines
-> Settings > Connections > Manage OpenAI API Connections
-- Add a new connection:
-    - API URL: http://locahost:9099 
-    - API key: 0p3n-w3bu!
-- (not really sure why we need to enter this as an OpenAI API connection, except that the Ollama API connections are missing fields that we need)
+---
 
-#### Connect the custom pipelines
-> Settings > Pipelines > Pipeline Valves 
-- If "flask_app_pipeline (pipe)" is NOT within the Pipelines Valves, then upload pipeline here
-- If pipelines says "Pipelines not detected", confirm that pipelines is connected as indicated in the step above
-- Select the chatbot's endpoint api: 
-    - Endpoint Api: <your_endpoint_api>>
-    - To get <your_endpoint_api>, look at the terminal window in which we ran rag_agent_app.py. It should say the following:
+## 📝 Notes
 
-```markdown
-PS address\to\your\project\repo_chatbot> python rag_agent_app.py
- * Serving Flask app 'rag_agent_app'
- * Debug mode: off
-INFO:werkzeug:WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
- * Running on all addresses (0.0.0.0)
- * Running on http://127.0.0.1:5001
- * Running on http://10.2.0.2:5001   (THIS IS <YOUR_ENDPOINT_API>)
-```
+- For Windows systems with strict cert requirements:
+  ```bash
+  python -m pip install --upgrade pip --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org --cert C:\certificates\ZscalerSHA256.pem
+  ```
+- If you encounter file formatting issues on Git Bash:
+  ```bash
+  dos2unix start_pipelines.sh
+  ```
 
-### 7. Select the pipeline from wthin chat window.
-http://localhost:8080
-> select "Flask App Connector Pipeline" from the top left drop down
+---
 
-### Chat away!
-
-## Debugging: Run tests
-Note: These tests are largely subjective in nature
-
-#### 1. test_connection
-#### 2. test_comment
-#### 3. test_summary
-#### 4. test_metadata_extraction
-#### 5. test_embeddings
-#### 6. test_query
-
-
-## Certificate errors on company machines:
-```
-python -m pip install --upgrade pip --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org --cert C:\certificates\ZscalerSHA256.pem  
-```
+## 💡 **Future Additions**
+- Multimodal input (voice commands + code navigation).
+- CI/CD pipeline integration.
+- Fine-tuned LLM deployment on private servers.
