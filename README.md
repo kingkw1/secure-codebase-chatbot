@@ -62,6 +62,10 @@ pip install -r requirements.txt
    ```bash
    bash start_pipelines.sh
    ```
+   Starts the Uvicorn server to run the FastAPI application.
+
+   NOTE:
+      Get the API URL (to be used later) from the line: "Uvicorn running on ..." in the console output.
 
 4. **Launch Open WebUI**
    ```bash
@@ -72,7 +76,7 @@ pip install -r requirements.txt
 5. **Connect everything via browser**  
    Open `http://localhost:8080` and link the pipeline:
    - **Admin Panel > Settings > Connections > OpenAI API Connection**  
-     - API URL: `http://localhost:9099`  
+     - API URL: <your_apiurl_from_step3note>
      - API Key: `0p3n-w3bu!`
 
    - **Admin Panel > Pipelines > Pipeline Valves**  
