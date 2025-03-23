@@ -252,6 +252,7 @@ def truncate_history(user_id, max_tokens=3000):
         logging.info(f"Truncating history: Removed entry '{removed_entry['content']}' to stay within token limit.")
     return history
 
+
 @app.route('/query', methods=['POST'])
 def handle_query():
     try:
@@ -270,6 +271,9 @@ def handle_query():
             chat_histories[user_id] = deque(maxlen=MAX_HISTORY_LENGTH)
 
         chat_histories[user_id].append({'role': 'user', 'content': user_query})
+
+        # Truncate history if it exceeds the token limit
+        chat_histories[user_id] = truncate_history(user_id, max_tokens=3000)
 
         if ENABLE_AZURE_SEMANTIC_SEARCH:
             # Step 1: Azure Semantic Search
@@ -297,8 +301,16 @@ def handle_query():
                 }
                 search_results.append(combined_doc)
 
+        # If no relevant documents, fallback to general LLM
         if not search_results:
-            return jsonify({"response": "No relevant documents found."})
+            logging.info("No search results found, falling back to general LLM response.")
+            history_context = "\n".join(
+                [f"{entry['role']}: {entry['content']}" for entry in list(chat_histories[user_id])[-3:]]
+            )
+            general_response = query_ollama(user_query, history_context)
+            cleaned_general_response = strip_ansi_codes(general_response)
+            chat_histories[user_id].append({'role': 'assistant', 'content': cleaned_general_response})
+            return jsonify({"response": cleaned_general_response})
 
         # Step 2: Rerank (always done with cross-encoder, but heavier reranking when Azure is disabled)
         reranked = []
@@ -313,7 +325,7 @@ def handle_query():
         # Step 3: Query Ollama/LLM with top reranked items
         final_responses = []
         for score, doc in reranked:
-            context = doc.get("code", "") + "\n" + doc.get("comment", "")
+            context = f"{history_context}\nCode:\n{doc.get('code', '')}\nComment:\n{doc.get('comment', '')}"
             response = query_ollama(user_query, context)
             cleaned_response = strip_ansi_codes(response)
             final_responses.append({
@@ -322,6 +334,10 @@ def handle_query():
                 "response": cleaned_response,
                 "score": score
             })
+
+        # Append the last top response to chat history
+        if final_responses:
+            chat_histories[user_id].append({'role': 'assistant', 'content': final_responses[0]['response']})
 
         return jsonify({"responses": final_responses})
 
