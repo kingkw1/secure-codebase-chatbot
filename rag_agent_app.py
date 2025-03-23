@@ -6,6 +6,7 @@ from flask_cors import CORS
 import re
 import sys
 import os
+import requests
 from torch.nn.functional import softmax
 from collections import deque
 from azure.search.documents import SearchClient
@@ -34,9 +35,13 @@ chat_histories = {}
 # Get paths for metadata and index files
 metadata_path, index_path = get_meta_paths()
 
-azure_endpoint = os.environ.get("AZURE_SEARCH_ENDPOINT")
-azure_index_name = os.environ.get("AZURE_SEARCH_INDEX_NAME")
-azure_admin_key = os.environ.get("AZURE_SEARCH_ADMIN_KEY")
+# Azure Search configuration
+AZURE_SEARCH_ENDPOINT = os.environ.get("AZURE_SEARCH_ENDPOINT")
+AZURE_SEARCH_INDEX = os.environ.get("AZURE_SEARCH_INDEX_NAME")
+AZURE_SEARCH_API_KEY = os.environ.get("AZURE_SEARCH_ADMIN_KEY")
+AZURE_SEARCH_API_VERSION = "2023-07-01-Preview"
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 def load_metadata(file_path):
     with open(file_path, 'r') as f:
@@ -186,14 +191,29 @@ def is_unrelated_query(query, metadata):
     # If there are no relevant codebase terms in the query, it's likely unrelated to the codebase
     return not any(keyword in query_keywords for keyword in codebase_keywords)
 
-def azure_search_query(query):
-    client = SearchClient(
-        endpoint=azure_endpoint,
-        index_name=azure_index_name,
-        credential=AzureKeyCredential(azure_admin_key)
-    )
-    results = client.search(search_text=query, top=5)
-    return [doc for doc in results]
+def azure_search_query(query, top_k=10):
+    headers = {
+        "Content-Type": "application/json",
+        "api-key": AZURE_SEARCH_API_KEY
+    }
+
+    payload = {
+        "search": query,
+        "top": top_k,
+        "queryType": "semantic",
+        "semanticConfiguration": "default",
+        "captions": "extractive",
+    }
+
+    url = f"{AZURE_SEARCH_ENDPOINT}/indexes/{AZURE_SEARCH_INDEX}/docs/search?api-version={AZURE_SEARCH_API_VERSION}"
+
+    response = requests.post(url, headers=headers, json=payload)
+    
+    if response.status_code != 200:
+        logging.error(f"Azure Search API error: {response.status_code} {response.text}")
+        return []
+    
+    return response.json().get("value", [])
 
 @app.route('/query', methods=['POST'])
 def handle_query():
@@ -217,71 +237,101 @@ def handle_query():
         # Append the new user query to the chat history
         chat_histories[user_id].append({'role': 'user', 'content': user_query})
 
-        # Load metadata and embeddings
-        metadata = load_metadata(metadata_path)
-        index = load_embeddings(index_path)
-        query_embedding = generate_embedding(user_query).astype('float32')
+        # Step 1: Query Azure Cognitive Search
+        search_results = azure_search_query(user_query, top_k=10)
+        
+        if not search_results:
+            return jsonify({"response": "No relevant documents found."})
 
-        # Retrieve scored results (relevant codebase context)
-        scored_results = multi_stage_retrieval_with_cross_encoder_reranking(
-            query_embedding, index, metadata, user_query
-        )
+        # Step 2: Rerank results locally using cross-encoder
+        reranked = []
+        for doc in search_results:
+            doc_text = doc.get("code", "") + " " + doc.get("comment", "")
+            score = cross_encoder_score(user_query, doc_text)
+            reranked.append((score, doc))
 
-        # Example usage of azure_search_query:
-        azure_results = azure_search_query(user_query)
-        logging.info(f"Azure Search returned {len(azure_results)} documents for query: {user_query}")
+        reranked = sorted(reranked, key=lambda x: x[0], reverse=True)[:5]
 
-        # Construct the chat history context
-        if ENABLE_CHAT_HISTORY:
-            history_context = "\n".join(
-                [f"{entry['role'].capitalize()}: {entry['content']}" for entry in chat_histories[user_id]]
-            )
-        else:
-            history_context = ""
+        # Step 3: Send best match to Ollama or another LLM
+        final_responses = []
+        for score, doc in reranked:
+            context = doc.get("code", "") + "\n" + doc.get("comment", "")
+            response = query_ollama(user_query, context)
+            cleaned_response = strip_ansi_codes(response)
+            final_responses.append({
+                "file_path": doc.get("file_path"),
+                "function": doc.get("name"),
+                "response": cleaned_response,
+                "score": score
+            })    
 
-        if is_unrelated_query(user_query, metadata):
-            prompt = (
-                f"Chat history:\n{history_context}\n"
-                f"User asked: {user_query}\n"
-                f"Provide a general knowledge answer. Do not reference any codebase."
-            ) if ENABLE_CHAT_HISTORY else (
-                f"User asked: {user_query}\n"
-                f"Provide a general knowledge answer. Do not reference any codebase."
-            )
-        else:
-            prompt = (
-                f"Chat history:\n{history_context}\n"
-                f"User asked: {user_query}\n"
-                f"Explain the purpose of the function or code related to the query."
-            ) if ENABLE_CHAT_HISTORY else (
-                f"User asked: {user_query}\n"
-                f"Explain the purpose of the function or code related to the query."
-            )
+        return jsonify({"responses": final_responses})
 
-        # Query the LLM based on the constructed prompt
-        response = query_ollama(prompt, model_name=agent_model_name)
+        # # Load metadata and embeddings
+        # metadata = load_metadata(metadata_path)
+        # index = load_embeddings(index_path)
+        # query_embedding = generate_embedding(user_query).astype('float32')
 
-        # Add the assistant's response to the chat history
-        chat_histories[user_id].append({'role': 'assistant', 'content': response})
+        # # Retrieve scored results (relevant codebase context)
+        # scored_results = multi_stage_retrieval_with_cross_encoder_reranking(
+        #     query_embedding, index, metadata, user_query
+        # )
 
-        # Format response
-        if scored_results and not is_unrelated_query(user_query, metadata):
-            # If there are relevant codebase results, include them in the response
-            responses = []
-            for final_score, idx, func, matched_file in scored_results:
-                func_name = func.get('name', 'Unnamed function')
-                func_comment = func.get('comment', '')
-                func_code = func.get('code', '')
-                responses.append({
-                    "function": func_name,
-                    "file": matched_file['file_path'],
-                    "score": final_score,
-                    "response": response
-                })
-            return jsonify(responses)
+        # # Example usage of azure_search_query:
+        # azure_results = azure_search_query(user_query)
+        # logging.info(f"Azure Search returned {len(azure_results)} documents for query: {user_query}")
 
-        # If no codebase relevance, return the general response
-        return jsonify([{"response": response}])
+        # # Construct the chat history context
+        # if ENABLE_CHAT_HISTORY:
+        #     history_context = "\n".join(
+        #         [f"{entry['role'].capitalize()}: {entry['content']}" for entry in chat_histories[user_id]]
+        #     )
+        # else:
+        #     history_context = ""
+
+        # if is_unrelated_query(user_query, metadata):
+        #     prompt = (
+        #         f"Chat history:\n{history_context}\n"
+        #         f"User asked: {user_query}\n"
+        #         f"Provide a general knowledge answer. Do not reference any codebase."
+        #     ) if ENABLE_CHAT_HISTORY else (
+        #         f"User asked: {user_query}\n"
+        #         f"Provide a general knowledge answer. Do not reference any codebase."
+        #     )
+        # else:
+        #     prompt = (
+        #         f"Chat history:\n{history_context}\n"
+        #         f"User asked: {user_query}\n"
+        #         f"Explain the purpose of the function or code related to the query."
+        #     ) if ENABLE_CHAT_HISTORY else (
+        #         f"User asked: {user_query}\n"
+        #         f"Explain the purpose of the function or code related to the query."
+        #     )
+
+        # # Query the LLM based on the constructed prompt
+        # response = query_ollama(prompt, model_name=agent_model_name)
+
+        # # Add the assistant's response to the chat history
+        # chat_histories[user_id].append({'role': 'assistant', 'content': response})
+
+        # # Format response
+        # if scored_results and not is_unrelated_query(user_query, metadata):
+        #     # If there are relevant codebase results, include them in the response
+        #     responses = []
+        #     for final_score, idx, func, matched_file in scored_results:
+        #         func_name = func.get('name', 'Unnamed function')
+        #         func_comment = func.get('comment', '')
+        #         func_code = func.get('code', '')
+        #         responses.append({
+        #             "function": func_name,
+        #             "file": matched_file['file_path'],
+        #             "score": final_score,
+        #             "response": response
+        #         })
+        #     return jsonify(responses)
+
+        # # If no codebase relevance, return the general response
+        # return jsonify([{"response": response}])
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
