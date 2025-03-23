@@ -6,9 +6,9 @@ __pycache__/
 
 # IntelliJ IDEA files
 .idea/
-
-# env
 *.env
+
+config.json
 
 test_repos/
 evaluation_datasets/*

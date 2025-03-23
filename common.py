@@ -4,6 +4,7 @@ import json
 import re
 import logging
 import os
+from dotenv import load_dotenv
 
 DEFAULT_CODEBASE_DIRECTORY = os.path.join(os.path.dirname(__file__), 'sample_repo')  # Specify the directory containing the codebase
 DEFAULT_METADATA_FILE = ".metadata.json"
@@ -11,32 +12,17 @@ DEFAULT_INDEX_FILE = ".index.faiss"
 
 
 def get_codebase_directory():
-    config_file = os.path.join(os.path.dirname(__file__), 'config.json')
+    load_dotenv()
+    codebase_directory = os.getenv('CODEBASE_DIRECTORY', DEFAULT_CODEBASE_DIRECTORY)
     
-    if os.path.exists(config_file):
-        try:
-            with open(config_file, 'r') as file:
-                config = json.load(file)
-                config_directory = config.get('codebase_directory', None)
-                if config_directory:
-                    if os.path.isabs(config_directory):
-                        codebase_directory = config_directory
-                    else:
-                        codebase_directory = os.path.join(os.path.dirname(config_file), config_directory)
-                    
-                    if not os.path.exists(codebase_directory):
-                        logging.error(f"Specified codebase directory does not exist: {codebase_directory}. Using default.")
-                        return DEFAULT_CODEBASE_DIRECTORY
-                    
-                    return codebase_directory
-                else:
-                    logging.warning("No codebase directory specified in config file. Using default.")
-                    return DEFAULT_CODEBASE_DIRECTORY
-        except (json.JSONDecodeError, IOError) as e:
-            logging.error(f"Error reading config file: {e}")
-            return DEFAULT_CODEBASE_DIRECTORY
-    else:
+    if not os.path.isabs(codebase_directory):
+        codebase_directory = os.path.join(os.path.dirname(__file__), codebase_directory)
+    
+    if not os.path.exists(codebase_directory):
+        logging.error(f"Specified codebase directory does not exist: {codebase_directory}. Using default.")
         return DEFAULT_CODEBASE_DIRECTORY
+    
+    return codebase_directory
 
 CODEBASE_DIRECTORY = get_codebase_directory()
 
