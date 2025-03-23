@@ -243,12 +243,12 @@ def count_tokens_in_history(history):
 # Helper function to truncate history based on token length
 def truncate_history(user_id, max_tokens=3000):
     history = chat_histories.get(user_id, [])
-    total_tokens = count_tokens_in_history(history)
+    total_tokens = sum([len(entry['content'].split()) for entry in history])
 
     # Truncate history if total tokens exceed max_tokens
     while total_tokens > max_tokens:
-        removed_entry = history.pop(0)  # Remove the earliest entry (FIFO)
-        total_tokens = count_tokens_in_history(history)
+        removed_entry = chat_histories[user_id].popleft()
+        total_tokens -= len(removed_entry['content'].split())
         logging.info(f"Truncating history: Removed entry '{removed_entry['content']}' to stay within token limit.")
     return history
 
@@ -275,6 +275,12 @@ def handle_query():
         # Truncate history if it exceeds the token limit
         chat_histories[user_id] = truncate_history(user_id, max_tokens=3000)
 
+        # Integrate ENABLE_CHAT_HISTORY toggle when building context
+        if ENABLE_CHAT_HISTORY:
+            history_context = "\n".join([f"{entry['role']}: {entry['content']}" for entry in list(chat_histories[user_id])[-3:]])
+        else:
+            history_context = ""
+            
         if ENABLE_AZURE_SEMANTIC_SEARCH:
             # Step 1: Azure Semantic Search
             search_results = azure_search_query(user_query, top_k=10)
@@ -284,15 +290,39 @@ def handle_query():
             metadata = load_metadata(metadata_path)
             index = load_embeddings(index_path)
             query_embedding = generate_embedding(user_query).astype('float32')
+            
+            # Validate metadata now as a dict containing "files"
+            if not metadata or not isinstance(metadata, dict) or "files" not in metadata:
+                logging.error("Metadata is empty or does not contain 'files'. Aborting search.")
+                return jsonify({"response": "Error: No valid metadata found."})
+            
+            # Check if the FAISS index is empty using ntotal instead of len(index)
+            if not index or not hasattr(index, "ntotal") or index.ntotal == 0:
+                logging.error("Index is empty. Aborting search.")
+                return jsonify({"response": "Error: No valid embeddings index found."})
 
             scored_results = multi_stage_retrieval_with_cross_encoder_reranking(
                 query_embedding, index, metadata, user_query
             )
             logging.info(f"Local multi-stage retrieval returned {len(scored_results)} documents.")
 
+            # Check if scored_results is valid
+            if not scored_results:
+                logging.warning("No results found in scored_results.")
+            
             # Adapt scored_results to a common format like search_results
             search_results = []
             for final_score, idx, func, matched_file in scored_results:
+                # Validate that the index is within bounds
+                if idx >= len(metadata):
+                    logging.error(f"Index {idx} is out of bounds for metadata of length {len(metadata)}.")
+                    continue  # Skip this result
+
+                # Ensure matched_file is valid
+                if not isinstance(matched_file, dict) or 'file_path' not in matched_file:
+                    logging.error(f"Invalid matched_file structure: {matched_file}")
+                    continue  # Skip this result
+
                 combined_doc = {
                     "name": func.get('name', ''),
                     "comment": func.get('comment', ''),
@@ -301,16 +331,20 @@ def handle_query():
                 }
                 search_results.append(combined_doc)
 
+            logging.info(f"Processed {len(search_results)} valid search results.")
+
         # If no relevant documents, fallback to general LLM
         if not search_results:
             logging.info("No search results found, falling back to general LLM response.")
-            history_context = "\n".join(
-                [f"{entry['role']}: {entry['content']}" for entry in list(chat_histories[user_id])[-3:]]
-            )
+            logging.info(f"Calling query_ollama fallback with model: {agent_model_name} and context: {history_context}")
             general_response = query_ollama(user_query, history_context)
+            if general_response is None:
+                general_response = "LLM endpoint returned no response. Please check configuration."
+                logging.error("query_ollama returned None in fallback call")
             cleaned_general_response = strip_ansi_codes(general_response)
             chat_histories[user_id].append({'role': 'assistant', 'content': cleaned_general_response})
             return jsonify({"response": cleaned_general_response})
+
 
         # Step 2: Rerank (always done with cross-encoder, but heavier reranking when Azure is disabled)
         reranked = []
@@ -326,7 +360,11 @@ def handle_query():
         final_responses = []
         for score, doc in reranked:
             context = f"{history_context}\nCode:\n{doc.get('code', '')}\nComment:\n{doc.get('comment', '')}"
+            logging.info(f"Calling query_ollama with model: {agent_model_name} and context: {context}")
             response = query_ollama(user_query, context)
+            if response is None:
+                response = "LLM endpoint returned no response. Please check configuration."
+                logging.error(f"query_ollama returned None for context: {context}")
             cleaned_response = strip_ansi_codes(response)
             final_responses.append({
                 "file_path": doc.get("file_path"),
