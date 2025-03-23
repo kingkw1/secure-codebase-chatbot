@@ -11,17 +11,18 @@ from torch.nn.functional import softmax
 from collections import deque
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
+from transformers import GPT2Tokenizer
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import query_ollama, get_meta_paths
 from models import embedding_model, embedding_tokenizer, cross_encoder_model, cross_encoder_tokenizer, agent_model_name
 
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 # Input variables  ------------------
 test_function_penalty = 100
 MAX_HISTORY_LENGTH = 5
 ENABLE_CHAT_HISTORY = False
+ENABLE_AZURE_SEMANTIC_SEARCH = False  # Toggle for Azure Semantic Search
 # -----------------------------------
 
 # Initialize Flask application
@@ -42,6 +43,9 @@ AZURE_SEARCH_API_KEY = os.environ.get("AZURE_SEARCH_ADMIN_KEY")
 AZURE_SEARCH_API_VERSION = "2023-07-01-Preview"
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+# Tokenizer to count tokens (adjust based on your LLM)
+tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
 
 def load_metadata(file_path):
     with open(file_path, 'r') as f:
@@ -88,6 +92,7 @@ def custom_score(query, matched_file, distance):
 
     custom_score = -distance + (keyword_score * 0.5) + (file_path_context_score * 0.3) + (type_context_score * 0.2)
     return custom_score, func_matches
+
 
 def multi_stage_retrieval_with_cross_encoder_reranking(query_embedding, index, metadata, query, first_stage_k=10, second_stage_k=5, distance_threshold=None):
     try:
@@ -191,6 +196,21 @@ def is_unrelated_query(query, metadata):
     # If there are no relevant codebase terms in the query, it's likely unrelated to the codebase
     return not any(keyword in query_keywords for keyword in codebase_keywords)
 
+
+def azure_semantic_search(query):
+    url = f"{AZURE_SEARCH_ENDPOINT}/indexes/{AZURE_SEARCH_INDEX}/docs/search?api-version={AZURE_SEARCH_API_VERSION}"
+    headers = {"Content-Type": "application/json", "api-key": AZURE_SEARCH_API_KEY}
+    body = {"search": query, "queryType": "semantic", "top": 5}
+
+    try:
+        response = requests.post(url, headers=headers, json=body)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Azure Search API error: {e.response.text if e.response else e}")
+        return None
+    
+        
 def azure_search_query(query, top_k=10):
     headers = {
         "Content-Type": "application/json",
@@ -215,44 +235,82 @@ def azure_search_query(query, top_k=10):
     
     return response.json().get("value", [])
 
+# Helper function to count tokens in the history
+def count_tokens_in_history(history):
+    history_text = "\n".join([entry['content'] for entry in history])
+    return len(tokenizer.encode(history_text))
+
+# Helper function to truncate history based on token length
+def truncate_history(user_id, max_tokens=3000):
+    history = chat_histories.get(user_id, [])
+    total_tokens = count_tokens_in_history(history)
+
+    # Truncate history if total tokens exceed max_tokens
+    while total_tokens > max_tokens:
+        removed_entry = history.pop(0)  # Remove the earliest entry (FIFO)
+        total_tokens = count_tokens_in_history(history)
+        logging.info(f"Truncating history: Removed entry '{removed_entry['content']}' to stay within token limit.")
+    return history
+
 @app.route('/query', methods=['POST'])
 def handle_query():
     try:
         user_query = request.json.get('query', '').strip()
-        user_id = request.json.get('user_id', 'default_user')  # Unique user ID to track separate conversations
-        clear_history = request.json.get('clear_history', False)  # Check if the user wants to clear the chat history
+        user_id = request.json.get('user_id', 'default_user')
+        clear_history = request.json.get('clear_history', False)
 
         logging.info(f"Received query from {user_id}: {user_query} (clear_history={clear_history})")
 
-        # Clear chat history if requested
         if clear_history:
             logging.info(f"Clearing chat history for user: {user_id}")
             chat_histories[user_id] = deque(maxlen=MAX_HISTORY_LENGTH)
             return jsonify({"response": "Chat history cleared."})
 
-        # Initialize chat history for new user session
         if user_id not in chat_histories:
             chat_histories[user_id] = deque(maxlen=MAX_HISTORY_LENGTH)
 
-        # Append the new user query to the chat history
         chat_histories[user_id].append({'role': 'user', 'content': user_query})
 
-        # Step 1: Query Azure Cognitive Search
-        search_results = azure_search_query(user_query, top_k=10)
-        
+        if ENABLE_AZURE_SEMANTIC_SEARCH:
+            # Step 1: Azure Semantic Search
+            search_results = azure_search_query(user_query, top_k=10)
+            logging.info(f"Azure Search returned {len(search_results)} documents.")
+        else:
+            # Step 1: Local keyword + embedding search
+            metadata = load_metadata(metadata_path)
+            index = load_embeddings(index_path)
+            query_embedding = generate_embedding(user_query).astype('float32')
+
+            scored_results = multi_stage_retrieval_with_cross_encoder_reranking(
+                query_embedding, index, metadata, user_query
+            )
+            logging.info(f"Local multi-stage retrieval returned {len(scored_results)} documents.")
+
+            # Adapt scored_results to a common format like search_results
+            search_results = []
+            for final_score, idx, func, matched_file in scored_results:
+                combined_doc = {
+                    "name": func.get('name', ''),
+                    "comment": func.get('comment', ''),
+                    "code": func.get('code', ''),
+                    "file_path": matched_file.get('file_path', ''),
+                }
+                search_results.append(combined_doc)
+
         if not search_results:
             return jsonify({"response": "No relevant documents found."})
 
-        # Step 2: Rerank results locally using cross-encoder
+        # Step 2: Rerank (always done with cross-encoder, but heavier reranking when Azure is disabled)
         reranked = []
+        rerank_top_n = 5 if ENABLE_AZURE_SEMANTIC_SEARCH else 10  # Larger rerank set when local
         for doc in search_results:
             doc_text = doc.get("code", "") + " " + doc.get("comment", "")
             score = cross_encoder_score(user_query, doc_text)
             reranked.append((score, doc))
 
-        reranked = sorted(reranked, key=lambda x: x[0], reverse=True)[:5]
+        reranked = sorted(reranked, key=lambda x: x[0], reverse=True)[:rerank_top_n]
 
-        # Step 3: Send best match to Ollama or another LLM
+        # Step 3: Query Ollama/LLM with top reranked items
         final_responses = []
         for score, doc in reranked:
             context = doc.get("code", "") + "\n" + doc.get("comment", "")
@@ -263,75 +321,9 @@ def handle_query():
                 "function": doc.get("name"),
                 "response": cleaned_response,
                 "score": score
-            })    
+            })
 
         return jsonify({"responses": final_responses})
-
-        # # Load metadata and embeddings
-        # metadata = load_metadata(metadata_path)
-        # index = load_embeddings(index_path)
-        # query_embedding = generate_embedding(user_query).astype('float32')
-
-        # # Retrieve scored results (relevant codebase context)
-        # scored_results = multi_stage_retrieval_with_cross_encoder_reranking(
-        #     query_embedding, index, metadata, user_query
-        # )
-
-        # # Example usage of azure_search_query:
-        # azure_results = azure_search_query(user_query)
-        # logging.info(f"Azure Search returned {len(azure_results)} documents for query: {user_query}")
-
-        # # Construct the chat history context
-        # if ENABLE_CHAT_HISTORY:
-        #     history_context = "\n".join(
-        #         [f"{entry['role'].capitalize()}: {entry['content']}" for entry in chat_histories[user_id]]
-        #     )
-        # else:
-        #     history_context = ""
-
-        # if is_unrelated_query(user_query, metadata):
-        #     prompt = (
-        #         f"Chat history:\n{history_context}\n"
-        #         f"User asked: {user_query}\n"
-        #         f"Provide a general knowledge answer. Do not reference any codebase."
-        #     ) if ENABLE_CHAT_HISTORY else (
-        #         f"User asked: {user_query}\n"
-        #         f"Provide a general knowledge answer. Do not reference any codebase."
-        #     )
-        # else:
-        #     prompt = (
-        #         f"Chat history:\n{history_context}\n"
-        #         f"User asked: {user_query}\n"
-        #         f"Explain the purpose of the function or code related to the query."
-        #     ) if ENABLE_CHAT_HISTORY else (
-        #         f"User asked: {user_query}\n"
-        #         f"Explain the purpose of the function or code related to the query."
-        #     )
-
-        # # Query the LLM based on the constructed prompt
-        # response = query_ollama(prompt, model_name=agent_model_name)
-
-        # # Add the assistant's response to the chat history
-        # chat_histories[user_id].append({'role': 'assistant', 'content': response})
-
-        # # Format response
-        # if scored_results and not is_unrelated_query(user_query, metadata):
-        #     # If there are relevant codebase results, include them in the response
-        #     responses = []
-        #     for final_score, idx, func, matched_file in scored_results:
-        #         func_name = func.get('name', 'Unnamed function')
-        #         func_comment = func.get('comment', '')
-        #         func_code = func.get('code', '')
-        #         responses.append({
-        #             "function": func_name,
-        #             "file": matched_file['file_path'],
-        #             "score": final_score,
-        #             "response": response
-        #         })
-        #     return jsonify(responses)
-
-        # # If no codebase relevance, return the general response
-        # return jsonify([{"response": response}])
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
