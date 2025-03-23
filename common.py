@@ -101,13 +101,13 @@ def query_ollama(prompt, model_name="codellama", api_mode=True, max_tokens=100, 
                 return cleaned_response
             else:
                 logging.error(f"Ollama API Error: {response.status_code} - {response.text}")
-                return None
+                return "LLM API returned an error. Please check the configuration."  # Fallback message
         except requests.RequestException as e:
             logging.error(f"Ollama Request Exception: {e}")
-            return None
+            return "Network error occurred when contacting the LLM API."  # Fallback message
         except json.JSONDecodeError as e:
             logging.error(f"Ollama JSON Decode Error: {e}")
-            return None
+            return "Error decoding the response from the LLM API."  # Fallback message
     else:
         # Use the subprocess method
         try:
@@ -127,8 +127,8 @@ def query_ollama(prompt, model_name="codellama", api_mode=True, max_tokens=100, 
                 logging.error(f"STDERR: {stderr_output}")
 
             # Normalize spaces in response text
-            return re.sub(r'\s+', ' ', response)
+            return re.sub(r'\s+', ' ', response) if response else "Error: No response from subprocess."  # Fallback message
 
         except Exception as e:
             logging.error(f"Subprocess Exception: {e}")
-            return None
+            return "Error occurred while querying the local LLM subprocess."  # Fallback message
