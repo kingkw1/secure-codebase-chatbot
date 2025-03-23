@@ -65,6 +65,7 @@ pip install -r requirements.txt
 
 4. **Launch Open WebUI**
    ```bash
+   .\.venv\Scripts\activate
    open-webui serve
    ```
 
