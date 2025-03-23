@@ -18,6 +18,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 # Input variables  ------------------
 test_function_penalty = 100
 MAX_HISTORY_LENGTH = 5
+ENABLE_CHAT_HISTORY = False
 # -----------------------------------
 
 # Initialize Flask application
@@ -212,25 +213,30 @@ def handle_query():
         )
 
         # Construct the chat history context
-        history_context = "\n".join(
-            [f"{entry['role'].capitalize()}: {entry['content']}" for entry in chat_histories[user_id]]
-        )
+        if ENABLE_CHAT_HISTORY:
+            history_context = "\n".join(
+                [f"{entry['role'].capitalize()}: {entry['content']}" for entry in chat_histories[user_id]]
+            )
+        else:
+            history_context = ""
 
         if is_unrelated_query(user_query, metadata):
-            # If the query is unrelated, use chat history but avoid referencing the codebase
-            logging.info("Unrelated query. Using chat history without referencing the codebase.")
             prompt = (
                 f"Chat history:\n{history_context}\n"
                 f"User asked: {user_query}\n"
                 f"Provide a general knowledge answer. Do not reference any codebase."
+            ) if ENABLE_CHAT_HISTORY else (
+                f"User asked: {user_query}\n"
+                f"Provide a general knowledge answer. Do not reference any codebase."
             )
         else:
-            # If related to the codebase, use chat history and codebase context
-            logging.info("Related query. Using chat history and codebase context.")
             prompt = (
                 f"Chat history:\n{history_context}\n"
                 f"User asked: {user_query}\n"
-                f"Explain the purpose of the function or code related to the query. Provide a detailed answer."
+                f"Explain the purpose of the function or code related to the query."
+            ) if ENABLE_CHAT_HISTORY else (
+                f"User asked: {user_query}\n"
+                f"Explain the purpose of the function or code related to the query."
             )
 
         # Query the LLM based on the constructed prompt
