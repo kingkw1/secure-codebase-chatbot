@@ -8,6 +8,8 @@ import sys
 import os
 from torch.nn.functional import softmax
 from collections import deque
+from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import query_ollama, get_meta_paths
@@ -31,6 +33,10 @@ chat_histories = {}
 
 # Get paths for metadata and index files
 metadata_path, index_path = get_meta_paths()
+
+azure_endpoint = os.environ.get("AZURE_SEARCH_ENDPOINT")
+azure_index_name = os.environ.get("AZURE_SEARCH_INDEX_NAME")
+azure_admin_key = os.environ.get("AZURE_SEARCH_ADMIN_KEY")
 
 def load_metadata(file_path):
     with open(file_path, 'r') as f:
@@ -180,6 +186,15 @@ def is_unrelated_query(query, metadata):
     # If there are no relevant codebase terms in the query, it's likely unrelated to the codebase
     return not any(keyword in query_keywords for keyword in codebase_keywords)
 
+def azure_search_query(query):
+    client = SearchClient(
+        endpoint=azure_endpoint,
+        index_name=azure_index_name,
+        credential=AzureKeyCredential(azure_admin_key)
+    )
+    results = client.search(search_text=query, top=5)
+    return [doc for doc in results]
+
 @app.route('/query', methods=['POST'])
 def handle_query():
     try:
@@ -211,6 +226,10 @@ def handle_query():
         scored_results = multi_stage_retrieval_with_cross_encoder_reranking(
             query_embedding, index, metadata, user_query
         )
+
+        # Example usage of azure_search_query:
+        azure_results = azure_search_query(user_query)
+        logging.info(f"Azure Search returned {len(azure_results)} documents for query: {user_query}")
 
         # Construct the chat history context
         if ENABLE_CHAT_HISTORY:
