@@ -81,8 +81,11 @@ def query_ollama(prompt, model_name="codellama", api_mode=True, max_tokens=100, 
     """
     if api_mode:
         try:
+            url = "http://localhost:11434/api/generate"
+            # Log the call details
+            logging.info(f"Calling Ollama API at {url} with model {model_name} and prompt: {prompt[:50]}...")
             response = requests.post(
-                "http://localhost:11434/api/generate",
+                url,
                 json={
                     "model": model_name,
                     "prompt": prompt,
@@ -90,26 +93,21 @@ def query_ollama(prompt, model_name="codellama", api_mode=True, max_tokens=100, 
                     "temperature": temperature
                 }
             )
-
             if response.status_code == 200:
-                # Split response by lines, trim each, and remove extra spaces
                 response_lines = response.content.decode('utf-8').split('\n')
                 responses = [json.loads(line).get("response", "").strip() for line in response_lines if line.strip()]
                 complete_response = ' '.join(responses).strip()
                 cleaned_response = correct_spacing_issues(complete_response)
-                
                 return cleaned_response
-                
             else:
-                logging.error(f"API Error: {response.status_code} - {response.reason}")
+                logging.error(f"Ollama API Error: {response.status_code} - {response.text}")
                 return None
         except requests.RequestException as e:
-            logging.error(f"Request Exception: {e}")
+            logging.error(f"Ollama Request Exception: {e}")
             return None
         except json.JSONDecodeError as e:
-            logging.error(f"JSON Decode Error: {e}")
+            logging.error(f"Ollama JSON Decode Error: {e}")
             return None
-
     else:
         # Use the subprocess method
         try:
