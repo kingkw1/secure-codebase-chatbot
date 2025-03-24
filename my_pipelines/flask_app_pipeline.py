@@ -42,7 +42,9 @@ class Pipeline:
             if isinstance(response_json, dict) and "response" in response_json:
                 results = response_json["response"]
                 if isinstance(results, list) and results:
-                    return results[0].get("response", "No response found."), response.status_code
+                    # Return doc with highest score
+                    top_doc = max(results, key=lambda x: x.get("score", 0))
+                    return top_doc.get("response", "No response found."), response.status_code
                 else:
                     return "No relevant data found for your query.", response.status_code
             elif isinstance(response_json, dict) and "error" in response_json:

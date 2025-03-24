@@ -12,6 +12,7 @@ from collections import deque
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from transformers import GPT2Tokenizer
+import torch
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import query_ollama, get_meta_paths
@@ -175,15 +176,20 @@ def find_closest_embeddings(query_embedding, index, k=5, distance_threshold=5):
             return I[0]
     return I[0]
 
-def cross_encoder_score(query, candidate_text):
-    inputs = cross_encoder_tokenizer(query, candidate_text, return_tensors="pt", truncation=True, padding=True)
-    outputs = cross_encoder_model(**inputs)
-    scores = softmax(outputs.logits, dim=-1)
-    
-    if scores.shape[1] == 2:
-        return scores[0][1].item()
-    else:
-        return scores[0][0].item()
+def cross_encoder_score(query, candidate_text, regression_model=True):
+    with torch.no_grad():
+        inputs = cross_encoder_tokenizer(query, candidate_text, return_tensors="pt", truncation=True, padding=True)
+        outputs = cross_encoder_model(**inputs)
+        if regression_model:
+            # Assume single regression output
+            final_score = outputs.logits.squeeze().item()
+            logging.info(f"Final regression score: {final_score}")
+        else:
+            logits = outputs.logits[0]  # shape: [2]
+            # Class 1 is typically "match"
+            final_score = torch.softmax(logits, dim=-1)[1].item()
+            logging.info(f"Probability of relevance (class 1): {final_score}")
+        return final_score
 
 # Helper function to check if the query is likely unrelated to the codebase or context
 def is_unrelated_query(query, metadata):
@@ -358,6 +364,7 @@ def handle_query():
         for doc in search_results:
             doc_text = doc.get("code", "") + " " + doc.get("comment", "")
             score = cross_encoder_score(user_query, doc_text)
+            print(f"Reranking document with score: {score}, doc_text: {doc_text[:100]}...")
             reranked.append((score, doc))
 
         reranked = sorted(reranked, key=lambda x: x[0], reverse=True)[:rerank_top_n]
