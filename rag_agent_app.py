@@ -366,14 +366,14 @@ def handle_query():
         final_responses = []
         for score, doc in reranked:
             # Prepare context (combine history context with relevant code and comment)
-            context = f"{history_context}\nCode:\n{doc.get('code', '')}\nComment:\n{doc.get('comment', '')}"
-            logging.info(f"Calling query_ollama with model: {agent_model_name} and context: {context}")
+            prompt = f"{history_context}\nUser Query:\n{user_query}\nCode:\n{doc.get('code', '')}\nComment:\n{doc.get('comment', '')}"
+            logging.info(f"Calling query_ollama with model: {agent_model_name} and context: {prompt}")
             
             # Here, make sure to pass user_query as 'prompt' and context for the LLM query
-            response = query_ollama(context, model_name=agent_model_name)  # Corrected argument order
+            response = query_ollama(prompt, model_name=agent_model_name)  # Corrected argument order
             if response is None or not response.strip():
                 response = "LLM endpoint returned no response. Please check configuration."
-                logging.error(f"query_ollama returned None or empty for context: {context}")
+                logging.error(f"query_ollama returned None or empty for context: {prompt}")
             cleaned_response = strip_ansi_codes(response)
             final_responses.append({
                 "file_path": doc.get("file_path"),
@@ -386,7 +386,7 @@ def handle_query():
         if final_responses:
             chat_histories[user_id].append({'role': 'assistant', 'content': final_responses[0]['response']})
 
-        return jsonify({"responses": final_responses})
+        return jsonify({"response": final_responses})
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
