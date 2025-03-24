@@ -8,7 +8,8 @@ class Pipeline:
     class Valves(BaseModel):
         endpoint_api: str = "http://10.5.0.2:5001/query"
         timeout: int = 30
-
+        id_remove: int = 1337
+        
     def __init__(self):
         self.name = "Flask App Connector Pipeline"
         self.valves = self.Valves(
@@ -38,8 +39,12 @@ class Pipeline:
             response_json = response.json()
 
             # Check for a direct LLM response or a codebase-related response
-            if isinstance(response_json, list) and response_json:
-                return response_json[0].get("response", "No response found."), response.status_code
+            if isinstance(response_json, dict) and "response" in response_json:
+                results = response_json["response"]
+                if isinstance(results, list) and results:
+                    return results[0].get("response", "No response found."), response.status_code
+                else:
+                    return "No relevant data found for your query.", response.status_code
             elif isinstance(response_json, dict) and "error" in response_json:
                 return response_json.get("error", "An error occurred."), response.status_code
             else:
