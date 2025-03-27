@@ -152,17 +152,48 @@ def save_metadata(metadata, output_path):
     with open(output_path, "w") as file:
         json.dump(metadata, file, indent=2)
 
+import json
+
+
+def flatten_metadata(metadata):
+    documents = []
+    repo_path = metadata.get("directory", "")
+    readme_summary = metadata.get("readme_summary", "")
+    dependencies = metadata.get("dependencies", [])
+
+    for file in metadata.get("files", []):
+        file_path = file.get("file_path", "")
+        
+        for struct in file.get("structure", []):
+            doc = {
+                "id": f"{repo_path}-{file_path}-{struct.get('name', '')}",
+                "repository_path": repo_path,
+                "file_path": file_path,
+                "function_name": struct.get("name", ""),
+                "code": struct.get("code", ""),
+                "comment": struct.get("comment", ""),
+                "readme_summary": readme_summary,
+                "dependencies": dependencies
+            }
+            documents.append(doc)
+
+    return documents
+
 
 def main():
     """
     Main function to extract repository metadata, generate embeddings, and create the FAISS index.
     """
 
-    # Step 1: Extract repository metadata
+    # Step 1a: Extract repository metadata
     print("Extracting repository metadata...")
     metadata = extract_repository_metadata(CODEBASE_DIRECTORY)
     print("Saving metadata to", metadata_path)
     save_metadata(metadata, metadata_path)
+
+    # Step 1b: Flatten the metadata for Azure Search or other storage
+    flat_metadata = flatten_metadata(metadata)
+    save_metadata(flat_metadata, os.path.join(os.path.dirname(metadata_path), "flattened_metadata.json"))
 
     # Step 2: Load metadata and extract text data
     text_data = extract_text_data(metadata)

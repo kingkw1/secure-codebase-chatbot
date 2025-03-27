@@ -1,0 +1,119 @@
+[
+  {
+    "id": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo-main.py-main",
+    "repository_path": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo",
+    "file_path": "main.py",
+    "function_name": "main",
+    "code": "def main():\n    numbers = [1, 2, 3, 4, 5]\n    print(\"Sum:\", add(3, 5))\n    print(\"Difference:\", subtract(10, 3))\n    print(\"Mean:\", mean(numbers))\n    print(\"Median:\", median(numbers))",
+    "comment": "This code defines a function called `main` that performs several operations on lists of numbers. The functions used are `add`, `subtract`, `mean`, and `median`. The code first creates a list of numbers and then prints the result of each operation using the respective functions. The comments provide information about what each line does, making it easy for readers to understand the purpose of the code.",
+    "readme_summary": "# Data Process ing Library ## Project Title Data Process ing Library ## Pur pose The purpose of this project is to create a library that provides functions for data processing. The library will include functions for calculating statistics such as mean and median, as well as functions for performing basic mathematical operations like addition and sub tra ction. The library will also include tests for each function to ensure correct ness. ## Us age To use this library, simply import the desired module and call the appropriate function. For example: ```fromdata_processorimportcalculateresult=calculate.add(2,3)print(result)#Output:5```##Features Thefollowingfeaturesareincludedinthislibrary:*Calculationofmeanandmedianstatistics*Basicmathematicaloperationslikeadditionandsubtraction*Testsforeachfunctiontoensurecorrectness##Installation Toinstallthislibrary,simplyclonetherepositoryfrom Git Hub:```gitclonehttps://github.com/<username>/data-processing-library.git```Then,navigatetotheclonedrepositoryandrunthefollowingcommandtoinstallthelibrary:```pipinstall.``` This will install the library and its dependencies in your Python environment. ## Cont rib uting Cont ribution s are welcome ! To contribute to this project, simply fork the repository and submit a pull request with your changes. ## License This project is lic ensed under the M I T license. For more information, see the L I C E N S E file in the root of the repository.",
+    "dependencies": [
+      "data_processor",
+      "numpy"
+    ]
+  },
+  {
+    "id": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo-data_processor\\calculate.py-add",
+    "repository_path": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo",
+    "file_path": "data_processor\\calculate.py",
+    "function_name": "add",
+    "code": "def add(a, b):\n    return a + b",
+    "comment": "This function adds two numbers together and returns the result. The function takes in two parameters `a` and `b`, which are both integers, and returns an integer that represents their sum.",
+    "readme_summary": "# Data Process ing Library ## Project Title Data Process ing Library ## Pur pose The purpose of this project is to create a library that provides functions for data processing. The library will include functions for calculating statistics such as mean and median, as well as functions for performing basic mathematical operations like addition and sub tra ction. The library will also include tests for each function to ensure correct ness. ## Us age To use this library, simply import the desired module and call the appropriate function. For example: ```fromdata_processorimportcalculateresult=calculate.add(2,3)print(result)#Output:5```##Features Thefollowingfeaturesareincludedinthislibrary:*Calculationofmeanandmedianstatistics*Basicmathematicaloperationslikeadditionandsubtraction*Testsforeachfunctiontoensurecorrectness##Installation Toinstallthislibrary,simplyclonetherepositoryfrom Git Hub:```gitclonehttps://github.com/<username>/data-processing-library.git```Then,navigatetotheclonedrepositoryandrunthefollowingcommandtoinstallthelibrary:```pipinstall.``` This will install the library and its dependencies in your Python environment. ## Cont rib uting Cont ribution s are welcome ! To contribute to this project, simply fork the repository and submit a pull request with your changes. ## License This project is lic ensed under the M I T license. For more information, see the L I C E N S E file in the root of the repository.",
+    "dependencies": [
+      "data_processor",
+      "numpy"
+    ]
+  },
+  {
+    "id": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo-data_processor\\calculate.py-subtract",
+    "repository_path": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo",
+    "file_path": "data_processor\\calculate.py",
+    "function_name": "subtract",
+    "code": "def subtract(a, b):\n    return a - b",
+    "comment": "This function takes two arguments `a` and `b`, and returns their difference.",
+    "readme_summary": "# Data Process ing Library ## Project Title Data Process ing Library ## Pur pose The purpose of this project is to create a library that provides functions for data processing. The library will include functions for calculating statistics such as mean and median, as well as functions for performing basic mathematical operations like addition and sub tra ction. The library will also include tests for each function to ensure correct ness. ## Us age To use this library, simply import the desired module and call the appropriate function. For example: ```fromdata_processorimportcalculateresult=calculate.add(2,3)print(result)#Output:5```##Features Thefollowingfeaturesareincludedinthislibrary:*Calculationofmeanandmedianstatistics*Basicmathematicaloperationslikeadditionandsubtraction*Testsforeachfunctiontoensurecorrectness##Installation Toinstallthislibrary,simplyclonetherepositoryfrom Git Hub:```gitclonehttps://github.com/<username>/data-processing-library.git```Then,navigatetotheclonedrepositoryandrunthefollowingcommandtoinstallthelibrary:```pipinstall.``` This will install the library and its dependencies in your Python environment. ## Cont rib uting Cont ribution s are welcome ! To contribute to this project, simply fork the repository and submit a pull request with your changes. ## License This project is lic ensed under the M I T license. For more information, see the L I C E N S E file in the root of the repository.",
+    "dependencies": [
+      "data_processor",
+      "numpy"
+    ]
+  },
+  {
+    "id": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo-data_processor\\statistics.py-mean",
+    "repository_path": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo",
+    "file_path": "data_processor\\statistics.py",
+    "function_name": "mean",
+    "code": "def mean(data):\n    return np.mean(data)",
+    "comment": "This function calcul ates the mean of a dataset using Num Py ' s built - in `mean()` function. The input data can be any numerical array or matrix, and the output is a scalar value representing the average of the dataset. This function is a simple way to calculate the mean of a dataset without having to write out the formula manually.",
+    "readme_summary": "# Data Process ing Library ## Project Title Data Process ing Library ## Pur pose The purpose of this project is to create a library that provides functions for data processing. The library will include functions for calculating statistics such as mean and median, as well as functions for performing basic mathematical operations like addition and sub tra ction. The library will also include tests for each function to ensure correct ness. ## Us age To use this library, simply import the desired module and call the appropriate function. For example: ```fromdata_processorimportcalculateresult=calculate.add(2,3)print(result)#Output:5```##Features Thefollowingfeaturesareincludedinthislibrary:*Calculationofmeanandmedianstatistics*Basicmathematicaloperationslikeadditionandsubtraction*Testsforeachfunctiontoensurecorrectness##Installation Toinstallthislibrary,simplyclonetherepositoryfrom Git Hub:```gitclonehttps://github.com/<username>/data-processing-library.git```Then,navigatetotheclonedrepositoryandrunthefollowingcommandtoinstallthelibrary:```pipinstall.``` This will install the library and its dependencies in your Python environment. ## Cont rib uting Cont ribution s are welcome ! To contribute to this project, simply fork the repository and submit a pull request with your changes. ## License This project is lic ensed under the M I T license. For more information, see the L I C E N S E file in the root of the repository.",
+    "dependencies": [
+      "data_processor",
+      "numpy"
+    ]
+  },
+  {
+    "id": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo-data_processor\\statistics.py-median",
+    "repository_path": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo",
+    "file_path": "data_processor\\statistics.py",
+    "function_name": "median",
+    "code": "def median(data):\n    return np.median(data)",
+    "comment": "This function calcul ates the median of a given dataset `data`. It uses the Num Py library ' s built - in `np.median()` function to perform the calculation. The function takes a single argument, which is an iter able data structure containing the data to be analyz ed. The return value is the median of the data, which is a scalar value indicating the middle value in the dataset when the data is sorted.",
+    "readme_summary": "# Data Process ing Library ## Project Title Data Process ing Library ## Pur pose The purpose of this project is to create a library that provides functions for data processing. The library will include functions for calculating statistics such as mean and median, as well as functions for performing basic mathematical operations like addition and sub tra ction. The library will also include tests for each function to ensure correct ness. ## Us age To use this library, simply import the desired module and call the appropriate function. For example: ```fromdata_processorimportcalculateresult=calculate.add(2,3)print(result)#Output:5```##Features Thefollowingfeaturesareincludedinthislibrary:*Calculationofmeanandmedianstatistics*Basicmathematicaloperationslikeadditionandsubtraction*Testsforeachfunctiontoensurecorrectness##Installation Toinstallthislibrary,simplyclonetherepositoryfrom Git Hub:```gitclonehttps://github.com/<username>/data-processing-library.git```Then,navigatetotheclonedrepositoryandrunthefollowingcommandtoinstallthelibrary:```pipinstall.``` This will install the library and its dependencies in your Python environment. ## Cont rib uting Cont ribution s are welcome ! To contribute to this project, simply fork the repository and submit a pull request with your changes. ## License This project is lic ensed under the M I T license. For more information, see the L I C E N S E file in the root of the repository.",
+    "dependencies": [
+      "data_processor",
+      "numpy"
+    ]
+  },
+  {
+    "id": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo-tests\\test_calculate.py-test_add",
+    "repository_path": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo",
+    "file_path": "tests\\test_calculate.py",
+    "function_name": "test_add",
+    "code": "def test_add():\n    assert add(3, 5) == 8",
+    "comment": "This function tests the `add` function by as ser ting that it returns the correct result when called with the arguments `3` and `5`. The comment is conc ise and provides a brief description of what the function does.",
+    "readme_summary": "# Data Process ing Library ## Project Title Data Process ing Library ## Pur pose The purpose of this project is to create a library that provides functions for data processing. The library will include functions for calculating statistics such as mean and median, as well as functions for performing basic mathematical operations like addition and sub tra ction. The library will also include tests for each function to ensure correct ness. ## Us age To use this library, simply import the desired module and call the appropriate function. For example: ```fromdata_processorimportcalculateresult=calculate.add(2,3)print(result)#Output:5```##Features Thefollowingfeaturesareincludedinthislibrary:*Calculationofmeanandmedianstatistics*Basicmathematicaloperationslikeadditionandsubtraction*Testsforeachfunctiontoensurecorrectness##Installation Toinstallthislibrary,simplyclonetherepositoryfrom Git Hub:```gitclonehttps://github.com/<username>/data-processing-library.git```Then,navigatetotheclonedrepositoryandrunthefollowingcommandtoinstallthelibrary:```pipinstall.``` This will install the library and its dependencies in your Python environment. ## Cont rib uting Cont ribution s are welcome ! To contribute to this project, simply fork the repository and submit a pull request with your changes. ## License This project is lic ensed under the M I T license. For more information, see the L I C E N S E file in the root of the repository.",
+    "dependencies": [
+      "data_processor",
+      "numpy"
+    ]
+  },
+  {
+    "id": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo-tests\\test_calculate.py-test_subtract",
+    "repository_path": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo",
+    "file_path": "tests\\test_calculate.py",
+    "function_name": "test_subtract",
+    "code": "def test_subtract():\n    assert subtract(10, 3) == 7",
+    "comment": "This function tests that the `subtract` function properly subtract s two numbers. The test case as ser ts that when the `subtract` function is called with arguments `10` and `3`, it returns the value `7`. This test ens ures that the `subtract` function works correctly for this specific scenario, and helps to identify any issues or bugs in the function ' s implementation.",
+    "readme_summary": "# Data Process ing Library ## Project Title Data Process ing Library ## Pur pose The purpose of this project is to create a library that provides functions for data processing. The library will include functions for calculating statistics such as mean and median, as well as functions for performing basic mathematical operations like addition and sub tra ction. The library will also include tests for each function to ensure correct ness. ## Us age To use this library, simply import the desired module and call the appropriate function. For example: ```fromdata_processorimportcalculateresult=calculate.add(2,3)print(result)#Output:5```##Features Thefollowingfeaturesareincludedinthislibrary:*Calculationofmeanandmedianstatistics*Basicmathematicaloperationslikeadditionandsubtraction*Testsforeachfunctiontoensurecorrectness##Installation Toinstallthislibrary,simplyclonetherepositoryfrom Git Hub:```gitclonehttps://github.com/<username>/data-processing-library.git```Then,navigatetotheclonedrepositoryandrunthefollowingcommandtoinstallthelibrary:```pipinstall.``` This will install the library and its dependencies in your Python environment. ## Cont rib uting Cont ribution s are welcome ! To contribute to this project, simply fork the repository and submit a pull request with your changes. ## License This project is lic ensed under the M I T license. For more information, see the L I C E N S E file in the root of the repository.",
+    "dependencies": [
+      "data_processor",
+      "numpy"
+    ]
+  },
+  {
+    "id": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo-tests\\test_statistics.py-test_mean",
+    "repository_path": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo",
+    "file_path": "tests\\test_statistics.py",
+    "function_name": "test_mean",
+    "code": "def test_mean():\n    assert mean([1, 2, 3, 4, 5]) == 3.0",
+    "comment": "This function tests the `mean` function by as ser ting that it returns the correct result for a given input list of numbers. The test case is checking that the mean of the list `[1,2,3,4,5]` is equal to `3.0`. If the test fails, it will raise an error with the specific details of what went wrong.",
+    "readme_summary": "# Data Process ing Library ## Project Title Data Process ing Library ## Pur pose The purpose of this project is to create a library that provides functions for data processing. The library will include functions for calculating statistics such as mean and median, as well as functions for performing basic mathematical operations like addition and sub tra ction. The library will also include tests for each function to ensure correct ness. ## Us age To use this library, simply import the desired module and call the appropriate function. For example: ```fromdata_processorimportcalculateresult=calculate.add(2,3)print(result)#Output:5```##Features Thefollowingfeaturesareincludedinthislibrary:*Calculationofmeanandmedianstatistics*Basicmathematicaloperationslikeadditionandsubtraction*Testsforeachfunctiontoensurecorrectness##Installation Toinstallthislibrary,simplyclonetherepositoryfrom Git Hub:```gitclonehttps://github.com/<username>/data-processing-library.git```Then,navigatetotheclonedrepositoryandrunthefollowingcommandtoinstallthelibrary:```pipinstall.``` This will install the library and its dependencies in your Python environment. ## Cont rib uting Cont ribution s are welcome ! To contribute to this project, simply fork the repository and submit a pull request with your changes. ## License This project is lic ensed under the M I T license. For more information, see the L I C E N S E file in the root of the repository.",
+    "dependencies": [
+      "data_processor",
+      "numpy"
+    ]
+  },
+  {
+    "id": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo-tests\\test_statistics.py-test_median",
+    "repository_path": "c:\\Users\\kingk\\OneDrive\\Documents\\Projects\\secure-codebase-chatbot\\sample_repo",
+    "file_path": "tests\\test_statistics.py",
+    "function_name": "test_median",
+    "code": "def test_median():\n    assert median([1, 2, 3, 4, 5]) == 3.0",
+    "comment": "The `test_median` function defines a test case that ver ifies the correct ness of the `median` function by checking if it returns the expected value for a given input. In this case, the input is `[1,2,3,4,5]`, and the expected output is `3.0`. The test passes if the actual output matches the expected output.",
+    "readme_summary": "# Data Process ing Library ## Project Title Data Process ing Library ## Pur pose The purpose of this project is to create a library that provides functions for data processing. The library will include functions for calculating statistics such as mean and median, as well as functions for performing basic mathematical operations like addition and sub tra ction. The library will also include tests for each function to ensure correct ness. ## Us age To use this library, simply import the desired module and call the appropriate function. For example: ```fromdata_processorimportcalculateresult=calculate.add(2,3)print(result)#Output:5```##Features Thefollowingfeaturesareincludedinthislibrary:*Calculationofmeanandmedianstatistics*Basicmathematicaloperationslikeadditionandsubtraction*Testsforeachfunctiontoensurecorrectness##Installation Toinstallthislibrary,simplyclonetherepositoryfrom Git Hub:```gitclonehttps://github.com/<username>/data-processing-library.git```Then,navigatetotheclonedrepositoryandrunthefollowingcommandtoinstallthelibrary:```pipinstall.``` This will install the library and its dependencies in your Python environment. ## Cont rib uting Cont ribution s are welcome ! To contribute to this project, simply fork the repository and submit a pull request with your changes. ## License This project is lic ensed under the M I T license. For more information, see the L I C E N S E file in the root of the repository.",
+    "dependencies": [
+      "data_processor",
+      "numpy"
+    ]
+  }
+]
